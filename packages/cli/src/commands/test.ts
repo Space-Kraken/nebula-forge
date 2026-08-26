@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Args, Flags } from '@oclif/core';
 import { ForgeError, loadWorkspace } from '@forgecli/core';
 import { BaseCommand } from '../lib/base';
-import { runInWorkspace } from '../lib/cdk';
+import { runInWorkspace } from '../lib/proc';
 
 export default class Test extends BaseCommand {
   static description = 'Run tests — for one module only, or for the whole workspace';

@@ -1,6 +1,6 @@
 {
   "name": "{{name}}",
-  "engine": "aws-cdk",
+  "engine": "{{engine}}",
   "defaultEnvironment": "dev",
   "environments": {
     "dev": {

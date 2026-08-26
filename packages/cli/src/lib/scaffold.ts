@@ -12,7 +12,16 @@ import {
 import type { Binding, ComponentType } from '@forgecli/core';
 import type { Blueprint } from '@forgecli/blueprints';
 import { regenerateControllersBarrel, writeEndpointFiles } from './endpoints';
+import { engineFor } from './engines';
 import { writeJson, writeRendered } from './templates';
+
+/** Engine id declared by the workspace manifest (without full validation). */
+export function readEngine(root: string): string {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, WORKSPACE_MANIFEST), 'utf8')) as {
+    engine?: string;
+  };
+  return manifest.engine ?? 'aws-cdk';
+}
 
 export interface ComponentDef {
   name: string;
@@ -80,6 +89,8 @@ export interface ScaffoldWorkspaceOptions {
   targetDir: string;
   /** Use file: links to this repo's packages instead of published versions (development). */
   link: boolean;
+  /** Synthesis engine for the workspace; defaults to aws-cdk. */
+  engine?: string;
 }
 
 function forgeDependency(packageName: string, link: boolean): string {
@@ -96,23 +107,25 @@ export function scaffoldWorkspace(options: ScaffoldWorkspaceOptions): void {
   if (fs.existsSync(options.targetDir) && fs.readdirSync(options.targetDir).length > 0) {
     throw new ForgeError(`Directory ${options.targetDir} already exists and is not empty`);
   }
+  const adapter = engineFor(options.engine ?? 'aws-cdk');
 
   const vars = {
     name: options.name,
+    engine: adapter.id,
     coreDep: forgeDependency('core', options.link),
     engineDep: forgeDependency('engine-cdk', options.link),
     cliDep: forgeDependency('cli', options.link),
   };
 
-  writeRendered(path.join(options.targetDir, 'package.json'), 'workspace/package.json.tpl', vars);
+  // Shared files first, then whatever the engine's toolchain needs.
   writeRendered(path.join(options.targetDir, WORKSPACE_MANIFEST), 'workspace/forge.json.tpl', vars);
-  writeRendered(path.join(options.targetDir, 'cdk.json'), 'workspace/cdk.json', vars);
   writeRendered(path.join(options.targetDir, 'tsconfig.json'), 'workspace/tsconfig.json', vars);
   writeRendered(path.join(options.targetDir, 'vitest.config.ts'), 'workspace/vitest.config.ts', vars);
-  writeRendered(path.join(options.targetDir, '.gitignore'), 'workspace/gitignore', vars);
   writeRendered(path.join(options.targetDir, 'pnpm-workspace.yaml'), 'workspace/pnpm-workspace.yaml', vars);
   writeRendered(path.join(options.targetDir, 'README.md'), 'workspace/README.md.tpl', vars);
-  writeRendered(path.join(options.targetDir, 'infra', 'app.ts'), 'workspace/infra/app.ts', vars);
+  for (const file of adapter.workspaceFiles) {
+    writeRendered(path.join(options.targetDir, file.target), file.template, vars);
+  }
   fs.mkdirSync(path.join(options.targetDir, 'domains'), { recursive: true });
 }
 
@@ -122,12 +135,13 @@ export function scaffoldModule(root: string, name: string, description?: string)
   if (fs.existsSync(moduleDir)) {
     throw new ForgeError(`Module "${name}" already exists at ${moduleDir}`);
   }
+  const adapter = engineFor(readEngine(root));
 
   writeJson(
     path.join(moduleDir, DOMAIN_MANIFEST),
     description ? { name, description } : { name },
   );
-  writeRendered(path.join(moduleDir, '__tests__', 'infra.test.ts'), 'module/infra.test.ts.tpl', {
+  writeRendered(path.join(moduleDir, '__tests__', 'infra.test.ts'), adapter.moduleTestTemplate, {
     module: name,
   });
   return moduleDir;

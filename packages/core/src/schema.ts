@@ -21,7 +21,8 @@ export const environmentSchema = z
 export const workspaceManifestSchema = z
   .object({
     name: nameSchema,
-    engine: z.literal('aws-cdk'),
+    // Extensible as new synthesis engines land (e.g. azure-terraform).
+    engine: z.enum(['aws-cdk']),
     defaultEnvironment: z.string(),
     environments: z.record(environmentSchema),
   })

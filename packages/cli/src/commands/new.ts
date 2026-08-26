@@ -2,7 +2,8 @@ import * as path from 'node:path';
 import { Args, Flags } from '@oclif/core';
 import { getBlueprint, listBlueprints } from '@forgecli/blueprints';
 import { BaseCommand } from '../lib/base';
-import { detectPackageManager, runInWorkspace } from '../lib/cdk';
+import { ENGINES } from '../lib/engines';
+import { detectPackageManager, runInWorkspace } from '../lib/proc';
 import { writeArchitectureDocs } from '../lib/docs';
 import { canPrompt, promptSelect } from '../lib/interactive';
 import { applyBlueprint, scaffoldWorkspace } from '../lib/scaffold';
@@ -27,6 +28,11 @@ export default class New extends BaseCommand {
       description: 'start from a reference architecture blueprint',
       options: listBlueprints().map((blueprint) => blueprint.id),
     }),
+    engine: Flags.string({
+      description: 'synthesis engine for the workspace',
+      options: Object.keys(ENGINES),
+      default: 'aws-cdk',
+    }),
     'skip-install': Flags.boolean({ description: 'do not install dependencies after scaffolding' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
     link: Flags.boolean({
@@ -50,8 +56,8 @@ export default class New extends BaseCommand {
       ]);
     }
 
-    scaffoldWorkspace({ name: args.name, targetDir, link: flags.link });
-    this.log(`✔ Created workspace ${args.name}`);
+    scaffoldWorkspace({ name: args.name, targetDir, link: flags.link, engine: flags.engine });
+    this.log(`✔ Created workspace ${args.name} (engine: ${flags.engine})`);
 
     if (blueprintId) {
       const blueprint = getBlueprint(blueprintId);
