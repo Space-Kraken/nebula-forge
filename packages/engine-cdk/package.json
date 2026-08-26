@@ -1,0 +1,26 @@
+{
+  "name": "@forgecli/engine-cdk",
+  "version": "0.1.0",
+  "description": "AWS CDK synthesis engine for the forge architecture model",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@forgecli/core": "workspace:^",
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

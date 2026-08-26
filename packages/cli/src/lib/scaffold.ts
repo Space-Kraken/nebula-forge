@@ -1,0 +1,213 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {
+  COMPONENT_MANIFEST,
+  DOMAIN_MANIFEST,
+  ForgeError,
+  isValidName,
+  loadWorkspace,
+  toConstructId,
+  WORKSPACE_MANIFEST,
+} from '@forgecli/core';
+import type { Binding, ComponentType } from '@forgecli/core';
+import type { Blueprint } from '@forgecli/blueprints';
+import { regenerateControllersBarrel, writeEndpointFiles } from './endpoints';
+import { writeJson, writeRendered } from './templates';
+
+export interface ComponentDef {
+  name: string;
+  type: ComponentType;
+  config?: Record<string, unknown>;
+  bindings?: Binding[];
+}
+
+interface ComponentFile {
+  template: string;
+  target: (name: string) => string;
+}
+
+/**
+ * Function-like components are scaffolded with a hexagonal layout:
+ * src/handler.ts is the composition root, driving adapters live under
+ * infrastructure/, use cases under application/ and ports under domain/.
+ * TypeScript lambdas run on @fusion-framework/server.
+ */
+const COMPONENT_FILES: Partial<Record<ComponentType, ComponentFile[]>> = {
+  'http-api': [{ template: 'component/http-api/handler.ts.tpl', target: () => 'src/handler.ts' }],
+  'queue-worker': [
+    { template: 'component/queue-worker/handler.ts.tpl', target: () => 'src/handler.ts' },
+    {
+      template: 'component/queue-worker/process-message.uc.ts.tpl',
+      target: () => 'src/application/process-message.uc.ts',
+    },
+    {
+      template: 'component/queue-worker/message-store.port.ts.tpl',
+      target: () => 'src/domain/ports/message-store.ts',
+    },
+    {
+      template: 'component/queue-worker/console-message-store.adapter.ts.tpl',
+      target: () => 'src/infrastructure/adapters/console-message-store.ts',
+    },
+    { template: 'component/queue-worker/handler.test.ts.tpl', target: () => 'test/handler.test.ts' },
+  ],
+  function: [
+    { template: 'component/function/handler.ts.tpl', target: () => 'src/handler.ts' },
+    { template: 'component/function/run-task.uc.ts.tpl', target: () => 'src/application/run-task.uc.ts' },
+    { template: 'component/function/handler.test.ts.tpl', target: () => 'test/handler.test.ts' },
+  ],
+  'static-site': [{ template: 'component/static-site/index.html.tpl', target: () => 'site/index.html' }],
+};
+
+/** Type-specific manifest defaults applied when no config is provided. */
+function defaultConfig(type: ComponentType): Record<string, unknown> | undefined {
+  // The generated fusion controller exposes GET /status, and fusion routes by
+  // exact httpMethod + resource match — routes must mirror the decorators.
+  if (type === 'http-api') return { routes: [{ method: 'GET', path: '/status' }] };
+  return undefined;
+}
+
+function assertValidName(kind: string, name: string): void {
+  if (!isValidName(name)) {
+    throw new ForgeError(
+      `Invalid ${kind} name "${name}"`,
+      'Names must be kebab-case: lowercase letters and digits separated by dashes (e.g. "order-events").',
+    );
+  }
+}
+
+export interface ScaffoldWorkspaceOptions {
+  name: string;
+  targetDir: string;
+  /** Use file: links to this repo's packages instead of published versions (development). */
+  link: boolean;
+}
+
+function forgeDependency(packageName: string, link: boolean): string {
+  if (!link) return '^0.1.0';
+  // dist/lib → cli package root → packages/. `link:` (a plain symlink) instead
+  // of `file:` so the linked package keeps resolving its own workspace deps
+  // from the forge monorepo.
+  const packagesRoot = path.resolve(__dirname, '..', '..', '..');
+  return `link:${path.join(packagesRoot, packageName).replace(/\\/g, '/')}`;
+}
+
+export function scaffoldWorkspace(options: ScaffoldWorkspaceOptions): void {
+  assertValidName('workspace', options.name);
+  if (fs.existsSync(options.targetDir) && fs.readdirSync(options.targetDir).length > 0) {
+    throw new ForgeError(`Directory ${options.targetDir} already exists and is not empty`);
+  }
+
+  const vars = {
+    name: options.name,
+    coreDep: forgeDependency('core', options.link),
+    engineDep: forgeDependency('engine-cdk', options.link),
+    cliDep: forgeDependency('cli', options.link),
+  };
+
+  writeRendered(path.join(options.targetDir, 'package.json'), 'workspace/package.json.tpl', vars);
+  writeRendered(path.join(options.targetDir, WORKSPACE_MANIFEST), 'workspace/forge.json.tpl', vars);
+  writeRendered(path.join(options.targetDir, 'cdk.json'), 'workspace/cdk.json', vars);
+  writeRendered(path.join(options.targetDir, 'tsconfig.json'), 'workspace/tsconfig.json', vars);
+  writeRendered(path.join(options.targetDir, 'vitest.config.ts'), 'workspace/vitest.config.ts', vars);
+  writeRendered(path.join(options.targetDir, '.gitignore'), 'workspace/gitignore', vars);
+  writeRendered(path.join(options.targetDir, 'pnpm-workspace.yaml'), 'workspace/pnpm-workspace.yaml', vars);
+  writeRendered(path.join(options.targetDir, 'README.md'), 'workspace/README.md.tpl', vars);
+  writeRendered(path.join(options.targetDir, 'infra', 'app.ts'), 'workspace/infra/app.ts', vars);
+  fs.mkdirSync(path.join(options.targetDir, 'domains'), { recursive: true });
+}
+
+export function scaffoldModule(root: string, name: string, description?: string): string {
+  assertValidName('module', name);
+  const moduleDir = path.join(root, 'domains', name);
+  if (fs.existsSync(moduleDir)) {
+    throw new ForgeError(`Module "${name}" already exists at ${moduleDir}`);
+  }
+
+  writeJson(
+    path.join(moduleDir, DOMAIN_MANIFEST),
+    description ? { name, description } : { name },
+  );
+  writeRendered(path.join(moduleDir, '__tests__', 'infra.test.ts'), 'module/infra.test.ts.tpl', {
+    module: name,
+  });
+  return moduleDir;
+}
+
+export function scaffoldComponent(
+  root: string,
+  moduleName: string,
+  def: ComponentDef,
+  options: { validate?: boolean } = {},
+): string {
+  assertValidName('component', def.name);
+  const moduleDir = path.join(root, 'domains', moduleName);
+  if (!fs.existsSync(path.join(moduleDir, DOMAIN_MANIFEST))) {
+    throw new ForgeError(
+      `Module "${moduleName}" does not exist`,
+      'Create it first with `forge generate module <name>`.',
+    );
+  }
+  const componentDir = path.join(moduleDir, 'components', def.name);
+  if (fs.existsSync(componentDir)) {
+    throw new ForgeError(`Component "${moduleName}/${def.name}" already exists`);
+  }
+
+  // Merge (not replace) type defaults so e.g. an http-api created with extra
+  // config still declares the routes its generated status controller needs.
+  const config = { ...(defaultConfig(def.type) ?? {}), ...(def.config ?? {}) };
+  const manifest: Record<string, unknown> = { name: def.name, type: def.type };
+  if (Object.keys(config).length > 0) manifest.config = config;
+  if (def.bindings && def.bindings.length > 0) manifest.bindings = def.bindings;
+  writeJson(path.join(componentDir, COMPONENT_MANIFEST), manifest);
+
+  const vars = { name: def.name, module: moduleName, pascalName: toConstructId(def.name) };
+  for (const file of COMPONENT_FILES[def.type] ?? []) {
+    writeRendered(path.join(componentDir, file.target(def.name)), file.template, vars);
+  }
+  if (def.type === 'http-api') {
+    // The module's API Lambda starts with a GET /status endpoint, generated
+    // through the same machinery as `forge generate endpoint` (see the
+    // matching route in defaultConfig).
+    writeEndpointFiles(componentDir, { name: 'status', method: 'GET', route: '/status' });
+    regenerateControllersBarrel(componentDir);
+  }
+
+  if (options.validate !== false) {
+    try {
+      loadWorkspace(root);
+    } catch (error) {
+      // Leave the workspace as it was before the invalid component was added.
+      fs.rmSync(componentDir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+  return componentDir;
+}
+
+export function applyBlueprint(root: string, blueprint: Blueprint): void {
+  for (const domain of blueprint.domains) {
+    scaffoldModule(root, domain.name, domain.description);
+    for (const component of domain.components) {
+      scaffoldComponent(root, domain.name, component, { validate: false });
+    }
+  }
+  loadWorkspace(root);
+}
+
+/** Parses repeated --bind flags of the form "<component>:<access>". */
+export function parseBindings(values: string[] | undefined): Binding[] {
+  if (!values) return [];
+  return values.map((value) => {
+    const separator = value.lastIndexOf(':');
+    if (separator <= 0 || separator === value.length - 1) {
+      throw new ForgeError(
+        `Invalid binding "${value}"`,
+        'Use the form <component>:<access>, e.g. --bind data:read-write or --bind jobs:publish.',
+      );
+    }
+    return {
+      component: value.slice(0, separator),
+      access: value.slice(separator + 1),
+    } as Binding;
+  });
+}

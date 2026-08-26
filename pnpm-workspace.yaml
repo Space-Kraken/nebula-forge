@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+
+# esbuild needs its postinstall script to place the platform binary
+allowBuilds:
+  esbuild: true

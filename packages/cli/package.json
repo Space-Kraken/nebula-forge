@@ -1,0 +1,45 @@
+{
+  "name": "@forgecli/cli",
+  "version": "0.1.0",
+  "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "forge": "./bin/run.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "oclif": {
+    "bin": "forge",
+    "dirname": "forge",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "generate": {
+        "description": "Generate modules, components and endpoints in the current workspace"
+      },
+      "remove": {
+        "description": "Remove components or endpoints (couplings are detached, files deleted)"
+      }
+    }
+  },
+  "dependencies": {
+    "@forgecli/blueprints": "workspace:^",
+    "@forgecli/core": "workspace:^",
+    "@inquirer/prompts": "^5.3.8",
+    "@oclif/core": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

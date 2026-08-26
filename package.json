@@ -1,0 +1,17 @@
+{
+  "name": "modern-cloud-architecture-accelerator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
+  "packageManager": "pnpm@11.23.0",
+  "scripts": {
+    "build": "tsc -b packages/cli packages/engine-cdk",
+    "clean": "tsc -b packages/cli packages/engine-cdk --clean",
+    "test": "pnpm -r --if-present run test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

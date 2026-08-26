@@ -1,0 +1,7 @@
+{
+  "app": "npx tsx infra/app.ts",
+  "watch": {
+    "include": ["domains/**", "infra/**"],
+    "exclude": ["**/node_modules/**", "**/*.test.ts"]
+  }
+}
