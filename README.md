@@ -108,14 +108,34 @@ CloudFormation. `forge test payments` corre solo ese dominio; cuando cambias
 la infraestructura a propósito, `forge test payments --update` acepta el nuevo
 snapshot.
 
+## Multi-cloud: Azure (beta)
+
+El mismo modelo, otro motor: `forge new mi-app --engine azure-terraform`
+genera un workspace cuyo `forge synth/diff/deploy` produce **Terraform JSON**
+(un root module por dominio, estado independiente) y ejecuta el binario de
+`terraform` por ti — tu equipo nunca escribe ni lee HCL.
+
+| Modelo | Azure |
+|---|---|
+| módulo | Resource Group + estado Terraform propio |
+| `function` / `queue-worker` | Function Apps (Node 20, zip empaquetado por forge) / Service Bus queue + DLQ |
+| `table` / `bucket` / `topic` | Cosmos DB serverless / Blob container / Service Bus topic |
+| `event-bus` | Event Grid topic por nombre determinístico (cross-domain sin estado compartido) |
+| bindings | Managed identity + RBAC de mínimo privilegio + app settings de descubrimiento |
+
+Aún no en Azure: `http-api` (llega con fusion-azure) y `static-site` (Front
+Door) — el CLI los rechaza con un error claro. El backend de estado es local
+por ahora; para equipos, backend remoto vía `forge bootstrap` (fase 1b).
+
 ## Estructura del monorepo
 
 ```
 packages/
-  core/         Modelo agnóstico: manifiestos, validación (zod), loader, contrato Engine
-  engine-cdk/   Motor AWS CDK: DomainStack, builders por tipo, bindings → IAM
-  blueprints/   Arquitecturas de referencia
-  cli/          oclif: new, generate, list, test, synth, diff, deploy + plantillas
+  core/             Modelo agnóstico: manifiestos, validación (zod), loader, contrato Engine
+  engine-cdk/       Motor AWS CDK: DomainStack, builders por tipo, bindings → IAM
+  engine-azure-tf/  Motor Azure: Terraform JSON puro, RBAC, Event Grid, empaquetado de Functions
+  blueprints/       Arquitecturas de referencia
+  cli/              oclif: new, generate, attach/detach/remove, docs, test, synth, diff, deploy
 ```
 
 `core` no conoce CDK: define el modelo (workspace → dominios → componentes →
@@ -138,7 +158,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 
 | Comando | Descripción |
 |---|---|
-| `forge new <nombre> [--blueprint <id>]` | Crea un workspace |
+| `forge new <nombre> [--blueprint <id>] [--engine aws-cdk\|azure-terraform]` | Crea un workspace |
 | `forge blueprints` | Lista las arquitecturas de referencia |
 | `forge generate module <nombre>` | Nuevo dominio (stack independiente) |
 | `forge generate component <n> -m <mod> -t <tipo>` | Nuevo componente; en terminal **infiere los acoples y pregunta** (a quién se conecta, quién lo usa, a qué bus se suscribe). Flags para CI: `--bind`, `--attach`, `--subscribe`, `--no-interactive` |
@@ -157,6 +177,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 ## Roadmap
 
 - [ ] Publicar `@forgecli/*` en npm
+- [ ] Azure 1b: `http-api` con fusion-azure, `static-site` con Front Door, `forge bootstrap` (backend remoto de estado)
 - [ ] `state-machine` (Step Functions) para orquestación
 - [ ] `service` (ECS) para microservicios donde Lambda no alcanza, y soporte de VPCs custom
 - [ ] Contratos tipados para eventos entre dominios

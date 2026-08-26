@@ -22,8 +22,19 @@ projects. pnpm monorepo, TypeScript project references, oclif CLI.
   "domain/name". Buses are addressed by deterministic physical name
   (`resourceNameFor` in core) — never introduce CloudFormation exports between
   domain stacks (an engine test asserts no `Fn::ImportValue`).
+- `packages/engine-azure-tf` implements the same model for Azure by emitting
+  **plain Terraform JSON** (no CDKTF): one root module per domain, RBAC role
+  assignments + managed identities for bindings, Event Grid for events
+  (cross-domain via deterministic names + data sources — never
+  terraform_remote_state), esbuild-zipped Function Apps
+  (`@azure/functions-core` stays external). Azure names that must be short
+  and globally unique go through hashed helpers in its `names.ts`.
+  `http-api`/`static-site` are rejected until fusion-azure/Front Door land.
 - `packages/cli` scaffolds from `packages/cli/templates/` (`{{var}}`
-  placeholders; per-type file maps in `src/lib/scaffold.ts`).
+  placeholders). Engine dispatch lives in `src/lib/engines/`: each adapter
+  declares its workspace files, component templates, module test template and
+  synth/diff/deploy toolchain (cdk vs terraform -chdir per domain). Shared
+  templates in `templates/workspace/`, per-engine under `templates/engines/`.
 
 ## Generated lambdas: hexagonal + fusion
 

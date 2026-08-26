@@ -72,6 +72,31 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(supports-color@8.1.1)
 
+  packages/engine-azure-tf:
+    dependencies:
+      '@forgecli/core':
+        specifier: workspace:^
+        version: link:../core
+      adm-zip:
+        specifier: ^0.5.14
+        version: 0.5.18
+      esbuild:
+        specifier: ^0.23.0
+        version: 0.23.1
+    devDependencies:
+      '@types/adm-zip':
+        specifier: ^0.5.5
+        version: 0.5.8
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(supports-color@8.1.1)
+
   packages/engine-cdk:
     dependencies:
       '@forgecli/core':
@@ -606,6 +631,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@types/adm-zip@0.5.8':
+    resolution: {integrity: sha512-RVVH7QvZYbN+ihqZ4kX/dMiowf6o+Jk1fNwiSdx0NahBJLU787zkULhGhJM8mf/obmLGmgdMM0bXsQTmyfbR7Q==}
+
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
@@ -649,6 +677,10 @@ packages:
 
   '@vitest/utils@2.1.9':
     resolution: {integrity: sha512-v0psaMSkNJ3A2NMrUEHFRzJtDPFn+/VWZ5WxImB21T9fjucJRmS7xCS3ppEnARb9y11OAzaD+P2Ps+b+BGX5iQ==}
+
+  adm-zip@0.5.18:
+    resolution: {integrity: sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng==}
+    engines: {node: '>=12.0'}
 
   ansi-escapes@4.3.2:
     resolution: {integrity: sha512-gKXj5ALrKWQLsYG9jlTRmR/xKluxHV+Z9QEwNIgCfM1/uwPMCuzVVnh5mwTd+OuBZcwSIMbqssNWRm1lE51QaQ==}
@@ -1405,6 +1437,10 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.5':
     optional: true
 
+  '@types/adm-zip@0.5.8':
+    dependencies:
+      '@types/node': 20.19.43
+
   '@types/estree@1.0.9': {}
 
   '@types/mute-stream@0.0.4':
@@ -1460,6 +1496,8 @@ snapshots:
       '@vitest/pretty-format': 2.1.9
       loupe: 3.2.1
       tinyrainbow: 1.2.0
+
+  adm-zip@0.5.18: {}
 
   ansi-escapes@4.3.2:
     dependencies:

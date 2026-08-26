@@ -1,12 +1,18 @@
 import { ForgeError } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import type { ComponentType, WorkspaceModel } from '@forgecli/core';
 import { awsCdkEngine } from './aws-cdk';
+import { azureTerraformEngine } from './azure-terraform';
 
 export interface EngineWorkspaceFile {
   /** Template path relative to the CLI templates/ directory. */
   template: string;
   /** Target path relative to the workspace root. */
   target: string;
+}
+
+export interface EngineComponentFile {
+  template: string;
+  target: (name: string) => string;
 }
 
 /**
@@ -17,10 +23,16 @@ export interface EngineWorkspaceFile {
  */
 export interface EngineAdapter {
   id: string;
+  /** forge package the generated workspace depends on for synthesis. */
+  enginePackage: string;
+  /** Component types this engine cannot synthesize yet (rejected at generate time). */
+  unsupportedTypes: ComponentType[];
   /** Engine-specific files written by `forge new`, on top of the shared set. */
   workspaceFiles: EngineWorkspaceFile[];
   /** Template for the per-module infrastructure test. */
   moduleTestTemplate: string;
+  /** Per-type source files scaffolded for components (handlers, use cases, tests). */
+  componentFiles: Partial<Record<ComponentType, EngineComponentFile[]>>;
   synth(model: WorkspaceModel, environment: string, domains: string[]): number;
   diff(model: WorkspaceModel, environment: string, domains: string[]): number;
   deploy(
@@ -33,6 +45,7 @@ export interface EngineAdapter {
 
 export const ENGINES: Record<string, EngineAdapter> = {
   [awsCdkEngine.id]: awsCdkEngine,
+  [azureTerraformEngine.id]: azureTerraformEngine,
 };
 
 export function engineFor(engineId: string): EngineAdapter {

@@ -1,0 +1,9 @@
+node_modules/
+.forge/
+.tfstate/
+*.tfstate
+*.tfstate.backup
+dist/
+coverage/
+.env
+.DS_Store

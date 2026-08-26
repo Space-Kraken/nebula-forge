@@ -1,4 +1,4 @@
-import { Args } from '@oclif/core';
+import { Args, Flags } from '@oclif/core';
 import { loadWorkspace } from '@forgecli/core';
 import { BaseCommand } from '../../lib/base';
 import { writeArchitectureDocs } from '../../lib/docs';
@@ -12,6 +12,11 @@ export default class GenerateModule extends BaseCommand {
 
   static args = {
     name: Args.string({ description: 'module name (kebab-case)', required: true }),
+  };
+
+  static flags = {
+    // Accepted for command-line consistency; module generation never prompts.
+    'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
   async run(): Promise<void> {
