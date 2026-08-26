@@ -1,3 +1,5 @@
+Do not include a Co-Authored-By line in commit messages.
+
 # forge (modern-cloud-architecture-accelerator)
 
 Angular-style CLI that scaffolds well-architected, domain-separated AWS
