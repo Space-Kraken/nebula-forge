@@ -30,12 +30,21 @@ export const environmentSchema = z
   })
   .strict();
 
+export const runtimeSchema = z.enum(['ts-fusion', 'ts']);
+
 export const workspaceManifestSchema = z
   .object({
     name: nameSchema,
     engine: z.enum(['aws-cdk', 'azure-terraform']),
     defaultEnvironment: z.string(),
     environments: z.record(environmentSchema),
+    /** Workspace-wide defaults applied when a component does not choose. */
+    defaults: z
+      .object({
+        runtime: runtimeSchema.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -92,11 +101,12 @@ const functionBaseConfig = z.object({
   timeoutSeconds: z.number().int().min(1).max(900).default(30),
   environment: z.record(z.string()).default({}),
   /**
-   * Handler flavor. Today only 'ts-fusion' (hexagonal TypeScript on
-   * @fusion-framework/server); a plain 'ts' runtime and other languages are
-   * planned — the hexagonal layout is the invariant, the framework is not.
+   * Handler flavor: 'ts-fusion' (hexagonal TypeScript on
+   * @fusion-framework/server) or 'ts' (plain hexagonal TypeScript, no
+   * framework). Unset = workspace default, then the engine's default. The
+   * hexagonal layout is the invariant; the framework is optional.
    */
-  runtime: z.enum(['ts-fusion']).optional(),
+  runtime: runtimeSchema.optional(),
 });
 
 export const functionConfigSchema = functionBaseConfig

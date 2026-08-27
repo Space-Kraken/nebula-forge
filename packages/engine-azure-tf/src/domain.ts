@@ -25,6 +25,15 @@ function assertSupported(ctx: Ctx): void {
         'Phase 1 covers function, queue-worker, table, bucket, topic and event-bus. The API layer (http-api) arrives with fusion-azure; static-site arrives with Front Door support.',
       );
     }
+    if (
+      (component.type === 'function' || component.type === 'queue-worker' || component.type === 'http-api') &&
+      component.config.runtime === 'ts-fusion'
+    ) {
+      throw new ForgeError(
+        `Component "${ctx.domain.name}/${component.name}" requests the ts-fusion runtime, which is not available on Azure yet`,
+        'fusion-azure has not been released — use the plain "ts" runtime (the default on azure-terraform).',
+      );
+    }
     if (component.type === 'queue-worker' && component.config.fifo) {
       throw new ForgeError(
         `Component "${ctx.domain.name}/${component.name}": fifo queue-workers are not supported on azure-terraform yet`,

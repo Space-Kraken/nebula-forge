@@ -150,6 +150,58 @@ describe('attachBinding', () => {
   });
 });
 
+describe('runtime ts (plain hexagonal, no fusion)', () => {
+  it('scaffolds an http-api with the forge router instead of fusion', () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-runtime-test-'));
+    createdDirs.push(parent);
+    const root = path.join(parent, 'shop');
+    scaffoldWorkspace({ name: 'shop', targetDir: root, link: false });
+    scaffoldModule(root, 'users');
+    scaffoldComponent(root, 'users', { name: 'api', type: 'http-api', config: { runtime: 'ts' } });
+
+    const apiDir = path.join(root, 'domains', 'users', 'components', 'api');
+    const handler = fs.readFileSync(path.join(apiDir, 'src', 'handler.ts'), 'utf8');
+    expect(handler).toContain('No route for');
+    expect(handler).not.toContain('@fusion-framework');
+
+    const controller = fs.readFileSync(
+      path.join(apiDir, 'src', 'infrastructure', 'controllers', 'status.controller.ts'),
+      'utf8',
+    );
+    expect(controller).toContain("readonly method = 'GET'");
+    expect(controller).toContain("readonly route = '/status'");
+    expect(controller).not.toContain('@Controller');
+
+    // endpoints on a ts api generate plain controllers, and removal parses them
+    addEndpoint(root, 'users', 'api', { name: 'get-user', method: 'GET', route: '/users/{id}' });
+    const generated = fs.readFileSync(
+      path.join(apiDir, 'src', 'infrastructure', 'controllers', 'get-user.controller.ts'),
+      'utf8',
+    );
+    expect(generated).toContain("readonly route = '/users/{id}'");
+    expect(loadWorkspace(root)).toBeTruthy();
+  });
+
+  it('honors the workspace default runtime from forge.json', () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-runtime-default-'));
+    createdDirs.push(parent);
+    const root = path.join(parent, 'shop');
+    scaffoldWorkspace({ name: 'shop', targetDir: root, link: false });
+    const manifestFile = path.join(root, 'forge.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    manifest.defaults = { runtime: 'ts' };
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+
+    scaffoldModule(root, 'users');
+    scaffoldComponent(root, 'users', { name: 'api', type: 'http-api' });
+    const handler = fs.readFileSync(
+      path.join(root, 'domains', 'users', 'components', 'api', 'src', 'handler.ts'),
+      'utf8',
+    );
+    expect(handler).not.toContain('@fusion-framework');
+  });
+});
+
 describe('writeEnvironmentState', () => {
   it('persists the backend into forge.json and validates', async () => {
     const { writeEnvironmentState } = await import('../src/lib/state');

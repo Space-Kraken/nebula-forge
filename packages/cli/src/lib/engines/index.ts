@@ -1,5 +1,5 @@
 import { ForgeError } from '@forgecli/core';
-import type { ComponentType, WorkspaceModel } from '@forgecli/core';
+import type { ComponentType, Runtime, WorkspaceModel } from '@forgecli/core';
 import { awsCdkEngine } from './aws-cdk';
 import { azureTerraformEngine } from './azure-terraform';
 
@@ -31,8 +31,11 @@ export interface EngineAdapter {
   workspaceFiles: EngineWorkspaceFile[];
   /** Template for the per-module infrastructure test. */
   moduleTestTemplate: string;
-  /** Per-type source files scaffolded for components (handlers, use cases, tests). */
-  componentFiles: Partial<Record<ComponentType, EngineComponentFile[]>>;
+  /** Handler runtimes this engine can scaffold, and which one applies when nothing chooses. */
+  runtimes: Runtime[];
+  defaultRuntime: Runtime;
+  /** Source files scaffolded for a component of the given type and runtime. */
+  componentFiles(type: ComponentType, runtime: Runtime): EngineComponentFile[];
   synth(model: WorkspaceModel, environment: string, domains: string[]): number;
   diff(model: WorkspaceModel, environment: string, domains: string[]): number;
   /** Prepares the account/environment: deploy prerequisites and state management. */

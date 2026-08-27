@@ -43,10 +43,18 @@ projects. pnpm monorepo, TypeScript project references, oclif CLI.
   synth/diff/deploy toolchain (cdk vs terraform -chdir per domain). Shared
   templates in `templates/workspace/`, per-engine under `templates/engines/`.
 
-## Generated lambdas: hexagonal + fusion
+## Generated lambdas: hexagonal, fusion optional
 
-TS lambdas use `@fusion-framework/server` (user's friend's lib). Facts
-verified against fusion 1.4.1 — recheck on upgrade:
+The hexagonal layout is the invariant; the framework is a per-component
+`config.runtime` choice resolved component → forge.json defaults.runtime →
+adapter defaultRuntime (aws: ts-fusion; azure: ts). Templates live under
+`component/<type>/<runtime>/` and `component/endpoint/<runtime>/` (shared
+endpoint test — both runtimes return the same response contract). The plain
+`ts` http-api uses a forge-generated router with the SAME exact
+`httpMethod + resource` matching, so engine and validations are
+runtime-agnostic. `remove endpoint` parses both controller styles.
+
+Fusion facts verified against fusion 1.4.1 — recheck on upgrade:
 
 - HTTP routing is an exact `httpMethod + resource` match → engine emits
   API Gateway **REST (payload v1)** with one resource per route in

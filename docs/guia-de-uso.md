@@ -81,6 +81,21 @@ Tipos de componente y a qué se traducen:
 | `gateway` | API Gateway REST compartido (ver §9) | *(fase 1b — APIM/Front Door)* |
 | `static-site` | S3 + CloudFront (+WAF) | *(fase 1b — Front Door)* |
 
+### Runtimes: fusion es opcional
+
+La arquitectura hexagonal es el invariante de forge; el framework no. Los
+componentes con código aceptan `--runtime`:
+
+- **`ts-fusion`** (default en AWS): TypeScript sobre
+  `@fusion-framework/server` — decoradores, DI, controllers fusion.
+- **`ts`**: TypeScript hexagonal puro, sin framework — mismos layouts, mismos
+  endpoints, y en `http-api` un mini-router generado por forge con el mismo
+  matching exacto `httpMethod + resource`. Es el default en Azure (hasta
+  fusion-azure).
+
+El default por workspace se fija en `forge.json` → `defaults.runtime`, y se
+puede mezclar por componente. Próximos: más lenguajes (python/go).
+
 ## 4. Endpoints (el API de cada dominio)
 
 ```bash

@@ -8,6 +8,9 @@ import {
   routePathIssues,
   toConstructId,
 } from '@forgecli/core';
+import type { Runtime } from '@forgecli/core';
+import { engineFor } from './engines';
+import { readWorkspaceSettings } from './settings';
 import { writeFile, writeJson, writeRendered } from './templates';
 
 export const ENDPOINT_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
@@ -100,7 +103,7 @@ export function validateEndpointDef(def: EndpointDef): void {
 }
 
 /** Writes controller + use case + test for one endpoint (no manifest changes). */
-export function writeEndpointFiles(componentDir: string, def: EndpointDef): void {
+export function writeEndpointFiles(componentDir: string, def: EndpointDef, runtime: Runtime): void {
   validateEndpointDef(def);
   const files = endpointFiles(componentDir, def.name);
   for (const file of Object.values(files)) {
@@ -116,8 +119,10 @@ export function writeEndpointFiles(componentDir: string, def: EndpointDef): void
     className: `${toConstructId(def.name)}Controller`,
     ucClass: `${toConstructId(def.name)}UC`,
   };
-  writeRendered(files.controller, 'component/endpoint/controller.ts.tpl', vars);
-  writeRendered(files.useCase, 'component/endpoint/uc.ts.tpl', vars);
+  // Controller and use case are runtime-flavored; the test invokes the
+  // handler the same way regardless (same routing semantics, same response).
+  writeRendered(files.controller, `component/endpoint/${runtime}/controller.ts.tpl`, vars);
+  writeRendered(files.useCase, `component/endpoint/${runtime}/uc.ts.tpl`, vars);
   writeRendered(files.test, 'component/endpoint/test.ts.tpl', vars);
 }
 
@@ -154,7 +159,11 @@ export function addEndpoint(root: string, moduleName: string, apiName: string, d
     throw new ForgeError(`Route ${def.method} ${def.route} already exists on "${moduleName}/${apiName}"`);
   }
 
-  writeEndpointFiles(componentDir, def);
+  const settings = readWorkspaceSettings(root);
+  const runtime = ((manifest.config?.runtime as Runtime | undefined) ??
+    settings.runtime ??
+    engineFor(settings.engine).defaultRuntime) as Runtime;
+  writeEndpointFiles(componentDir, def, runtime);
   manifest.config = { ...(manifest.config ?? {}), routes: [...routes, { method: def.method, path: def.route }] };
   writeJson(manifestFile, manifest);
   regenerateControllersBarrel(componentDir);

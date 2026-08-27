@@ -69,6 +69,10 @@ export default class GenerateComponent extends BaseCommand {
     mount: Flags.string({
       description: 'mount the new http-api on a shared gateway: <gateway> or <domain>/<gateway>',
     }),
+    runtime: Flags.string({
+      description: 'handler flavor: ts-fusion (TypeScript on fusion) or ts (plain hexagonal TypeScript)',
+      options: ['ts-fusion', 'ts'],
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -100,6 +104,12 @@ export default class GenerateComponent extends BaseCommand {
         'Only http-api components mount on a shared gateway.',
       );
     }
+    if (flags.runtime && !FUNCTION_LIKE_TYPES.includes(type)) {
+      throw new ForgeError(
+        `--runtime does not apply to ${type} components`,
+        'Only function, http-api and queue-worker components run code.',
+      );
+    }
     let mount = flags.mount;
 
     if (canPrompt(flags['no-interactive'])) {
@@ -127,6 +137,7 @@ export default class GenerateComponent extends BaseCommand {
     if (type === 'table') config.partitionKey = { name: flags['partition-key'] };
     if (subscriptions.length > 0) config.subscriptions = subscriptions;
     if (mount) config.mount = mount;
+    if (flags.runtime) config.runtime = flags.runtime;
 
     const componentDir = scaffoldComponent(model.root, flags.module, {
       name: args.name,

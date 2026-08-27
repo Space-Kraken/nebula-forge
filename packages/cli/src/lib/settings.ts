@@ -1,0 +1,19 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { WORKSPACE_MANIFEST } from '@forgecli/core';
+import type { Runtime } from '@forgecli/core';
+
+export interface WorkspaceSettings {
+  engine: string;
+  /** Workspace-wide default runtime (forge.json defaults.runtime), if any. */
+  runtime?: Runtime;
+}
+
+/** Cheap read of the workspace's engine/defaults without full validation. */
+export function readWorkspaceSettings(root: string): WorkspaceSettings {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, WORKSPACE_MANIFEST), 'utf8')) as {
+    engine?: string;
+    defaults?: { runtime?: Runtime };
+  };
+  return { engine: manifest.engine ?? 'aws-cdk', runtime: manifest.defaults?.runtime };
+}

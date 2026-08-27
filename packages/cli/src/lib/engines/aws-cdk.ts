@@ -33,30 +33,40 @@ export const awsCdkEngine: EngineAdapter = {
       CDK_DEFAULT_REGION: envSpec.region,
     });
   },
-  componentFiles: {
-    'http-api': [{ template: 'component/http-api/handler.ts.tpl', target: () => 'src/handler.ts' }],
-    'queue-worker': [
-      { template: 'component/queue-worker/handler.ts.tpl', target: () => 'src/handler.ts' },
-      {
-        template: 'component/queue-worker/process-message.uc.ts.tpl',
-        target: () => 'src/application/process-message.uc.ts',
-      },
-      {
-        template: 'component/queue-worker/message-store.port.ts.tpl',
-        target: () => 'src/domain/ports/message-store.ts',
-      },
-      {
-        template: 'component/queue-worker/console-message-store.adapter.ts.tpl',
-        target: () => 'src/infrastructure/adapters/console-message-store.ts',
-      },
-      { template: 'component/queue-worker/handler.test.ts.tpl', target: () => 'test/handler.test.ts' },
-    ],
-    function: [
-      { template: 'component/function/handler.ts.tpl', target: () => 'src/handler.ts' },
-      { template: 'component/function/run-task.uc.ts.tpl', target: () => 'src/application/run-task.uc.ts' },
-      { template: 'component/function/handler.test.ts.tpl', target: () => 'test/handler.test.ts' },
-    ],
-    'static-site': [{ template: 'component/static-site/index.html.tpl', target: () => 'site/index.html' }],
+  runtimes: ['ts-fusion', 'ts'],
+  defaultRuntime: 'ts-fusion',
+  componentFiles: (type, runtime) => {
+    switch (type) {
+      case 'http-api':
+        return [{ template: `component/http-api/${runtime}/handler.ts.tpl`, target: () => 'src/handler.ts' }];
+      case 'queue-worker':
+        return [
+          { template: `component/queue-worker/${runtime}/handler.ts.tpl`, target: () => 'src/handler.ts' },
+          {
+            template: `component/queue-worker/${runtime}/process-message.uc.ts.tpl`,
+            target: () => 'src/application/process-message.uc.ts',
+          },
+          {
+            template: `component/queue-worker/${runtime}/message-store.port.ts.tpl`,
+            target: () => 'src/domain/ports/message-store.ts',
+          },
+          {
+            template: `component/queue-worker/${runtime}/console-message-store.adapter.ts.tpl`,
+            target: () => 'src/infrastructure/adapters/console-message-store.ts',
+          },
+          { template: `component/queue-worker/${runtime}/handler.test.ts.tpl`, target: () => 'test/handler.test.ts' },
+        ];
+      case 'function':
+        return [
+          { template: `component/function/${runtime}/handler.ts.tpl`, target: () => 'src/handler.ts' },
+          { template: `component/function/${runtime}/run-task.uc.ts.tpl`, target: () => 'src/application/run-task.uc.ts' },
+          { template: `component/function/${runtime}/handler.test.ts.tpl`, target: () => 'test/handler.test.ts' },
+        ];
+      case 'static-site':
+        return [{ template: 'component/static-site/index.html.tpl', target: () => 'site/index.html' }];
+      default:
+        return [];
+    }
   },
   synth: (model, environment, domains) =>
     runCdk(model, environment, ['synth', ...stackNames(model, environment, domains)]),

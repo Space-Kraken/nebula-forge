@@ -4,24 +4,18 @@ import {
   COMPONENT_MANIFEST,
   DOMAIN_MANIFEST,
   ForgeError,
+  FUNCTION_LIKE_TYPES,
   isValidName,
   loadWorkspace,
   toConstructId,
   WORKSPACE_MANIFEST,
 } from '@forgecli/core';
-import type { Binding, ComponentType } from '@forgecli/core';
+import type { Binding, ComponentType, Runtime } from '@forgecli/core';
 import type { Blueprint } from '@forgecli/blueprints';
 import { regenerateControllersBarrel, writeEndpointFiles } from './endpoints';
 import { engineFor } from './engines';
+import { readWorkspaceSettings } from './settings';
 import { writeJson, writeRendered } from './templates';
-
-/** Engine id declared by the workspace manifest (without full validation). */
-export function readEngine(root: string): string {
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, WORKSPACE_MANIFEST), 'utf8')) as {
-    engine?: string;
-  };
-  return manifest.engine ?? 'aws-cdk';
-}
 
 export interface ComponentDef {
   name: string;
@@ -97,7 +91,7 @@ export function scaffoldModule(root: string, name: string, description?: string)
   if (fs.existsSync(moduleDir)) {
     throw new ForgeError(`Module "${name}" already exists at ${moduleDir}`);
   }
-  const adapter = engineFor(readEngine(root));
+  const adapter = engineFor(readWorkspaceSettings(root).engine);
 
   writeJson(
     path.join(moduleDir, DOMAIN_MANIFEST),
@@ -127,11 +121,22 @@ export function scaffoldComponent(
   if (fs.existsSync(componentDir)) {
     throw new ForgeError(`Component "${moduleName}/${def.name}" already exists`);
   }
-  const adapter = engineFor(readEngine(root));
+  const settings = readWorkspaceSettings(root);
+  const adapter = engineFor(settings.engine);
   if (adapter.unsupportedTypes.includes(def.type)) {
     throw new ForgeError(
       `Component type "${def.type}" is not supported by the ${adapter.id} engine yet`,
       `Supported everywhere: function, queue-worker, table, bucket, topic, event-bus.`,
+    );
+  }
+  const runtime = ((def.config as { runtime?: Runtime } | undefined)?.runtime ??
+    settings.runtime ??
+    adapter.defaultRuntime) as Runtime;
+  if (FUNCTION_LIKE_TYPES.includes(def.type) && !adapter.runtimes.includes(runtime)) {
+    throw new ForgeError(
+      `Runtime "${runtime}" is not available on the ${adapter.id} engine`,
+      `Available runtimes: ${adapter.runtimes.join(', ')}.` +
+        (runtime === 'ts-fusion' ? ' fusion-azure is not released yet — use the plain "ts" runtime.' : ''),
     );
   }
 
@@ -148,13 +153,13 @@ export function scaffoldComponent(
   writeJson(path.join(componentDir, COMPONENT_MANIFEST), manifest);
 
   const vars = { name: def.name, module: moduleName, pascalName: toConstructId(def.name) };
-  for (const file of adapter.componentFiles[def.type] ?? []) {
+  for (const file of adapter.componentFiles(def.type, runtime)) {
     writeRendered(path.join(componentDir, file.target(def.name)), file.template, vars);
   }
   if (def.type === 'http-api') {
     // The module's API Lambda starts with a status endpoint, generated through
     // the same machinery as `forge generate endpoint` (route matches config).
-    writeEndpointFiles(componentDir, { name: 'status', method: 'GET', route: statusRoute });
+    writeEndpointFiles(componentDir, { name: 'status', method: 'GET', route: statusRoute }, runtime);
     regenerateControllersBarrel(componentDir);
   }
 

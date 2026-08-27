@@ -5,6 +5,7 @@ import type {
   componentManifestSchema,
   domainManifestSchema,
   environmentSchema,
+  runtimeSchema,
   workspaceManifestSchema,
 } from './schema';
 
@@ -50,3 +51,14 @@ export const BINDABLE_ACCESS: Partial<Record<ComponentType, readonly BindingAcce
  * independently deployable.
  */
 export const CROSS_DOMAIN_BINDABLE_TYPES: readonly ComponentType[] = ['event-bus'];
+
+export type Runtime = z.infer<typeof runtimeSchema>;
+
+/** Resolution order: component choice → workspace default → engine default. */
+export function runtimeFor(
+  model: Pick<WorkspaceManifest, 'defaults'>,
+  config: { runtime?: Runtime } | undefined,
+  engineDefault: Runtime,
+): Runtime {
+  return config?.runtime ?? model.defaults?.runtime ?? engineDefault;
+}

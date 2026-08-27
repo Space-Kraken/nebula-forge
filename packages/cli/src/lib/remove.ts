@@ -89,8 +89,11 @@ export function removeComponent(
   return referrers;
 }
 
+// Fusion-style controllers use decorators; plain-ts controllers use fields.
 const CONTROLLER_ROUTE = /@Controller\('([^']*)'\)/;
 const METHOD_DECORATOR = /@(Get|Post|Put|Patch|Delete)\(\)/;
+const PLAIN_METHOD = /readonly method = '(GET|POST|PUT|PATCH|DELETE)'/;
+const PLAIN_ROUTE = /readonly route = '([^']*)'/;
 
 /**
  * Removes an endpoint: its API Gateway route, controller, use case and test,
@@ -125,16 +128,27 @@ export function removeEndpoint(
   }
 
   const source = fs.readFileSync(files.controller, 'utf8');
-  const routeMatch = CONTROLLER_ROUTE.exec(source);
-  const methodMatch = METHOD_DECORATOR.exec(source);
-  if (!routeMatch || !methodMatch) {
+  let route: string | undefined;
+  let method: string | undefined;
+  const fusionRoute = CONTROLLER_ROUTE.exec(source);
+  const fusionMethod = METHOD_DECORATOR.exec(source);
+  if (fusionRoute && fusionMethod) {
+    route = fusionRoute[1];
+    method = fusionMethod[1].toUpperCase();
+  } else {
+    const plainMethod = PLAIN_METHOD.exec(source);
+    const plainRoute = PLAIN_ROUTE.exec(source);
+    if (plainMethod && plainRoute) {
+      method = plainMethod[1];
+      route = plainRoute[1];
+    }
+  }
+  if (!route || !method) {
     throw new ForgeError(
       `Controller "${endpointName}.controller.ts" is not a forge-generated endpoint`,
       'Remove its route from component.json and delete the files by hand, then rerun any forge generate command to refresh the barrel.',
     );
   }
-  const route = routeMatch[1];
-  const method = methodMatch[1].toUpperCase();
 
   const manifestBefore = fs.readFileSync(manifestFile, 'utf8');
   const manifest = JSON.parse(manifestBefore) as Record<string, any>;

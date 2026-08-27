@@ -122,7 +122,7 @@ function bootstrapAzure(model: WorkspaceModel, environment: string, log: (messag
 export const azureTerraformEngine: EngineAdapter = {
   id: 'azure-terraform',
   enginePackage: 'engine-azure-tf',
-  unsupportedTypes: ['http-api', 'static-site'],
+  unsupportedTypes: ['http-api', 'static-site', 'gateway'],
   workspaceFiles: [
     { template: 'engines/azure-terraform/forge.json.tpl', target: 'forge.json' },
     { template: 'engines/azure-terraform/package.json.tpl', target: 'package.json' },
@@ -131,8 +131,27 @@ export const azureTerraformEngine: EngineAdapter = {
   ],
   moduleTestTemplate: 'engines/azure-terraform/infra.test.ts.tpl',
   bootstrap: bootstrapAzure,
-  componentFiles: {
-    function: [
+  // Azure templates are plain hexagonal; fusion-azure will add 'ts-fusion'.
+  runtimes: ['ts'],
+  defaultRuntime: 'ts',
+  componentFiles: (type) => AZURE_COMPONENT_FILES[type] ?? [],
+  synth: (model, environment) => {
+    return synthesize(model, environment) === 0 ? 0 : 1;
+  },
+  diff: (model, environment, domains) =>
+    perDomain(model, environment, domains, () => [
+      ['init', '-input=false'],
+      ['plan', '-input=false'],
+    ]),
+  deploy: (model, environment, domains, options) =>
+    perDomain(model, environment, domains, () => [
+      ['init', '-input=false'],
+      ['apply', '-input=false', ...(options.skipApproval ? ['-auto-approve'] : [])],
+    ]),
+};
+
+const AZURE_COMPONENT_FILES: Partial<Record<string, { template: string; target: (name: string) => string }[]>> = {
+  function: [
       { template: 'engines/azure-terraform/component/function/handler.ts.tpl', target: () => 'src/handler.ts' },
       {
         template: 'engines/azure-terraform/component/function/run-task.uc.ts.tpl',
@@ -159,18 +178,4 @@ export const azureTerraformEngine: EngineAdapter = {
         target: () => 'test/handler.test.ts',
       },
     ],
-  },
-  synth: (model, environment) => {
-    return synthesize(model, environment) === 0 ? 0 : 1;
-  },
-  diff: (model, environment, domains) =>
-    perDomain(model, environment, domains, () => [
-      ['init', '-input=false'],
-      ['plan', '-input=false'],
-    ]),
-  deploy: (model, environment, domains, options) =>
-    perDomain(model, environment, domains, () => [
-      ['init', '-input=false'],
-      ['apply', '-input=false', ...(options.skipApproval ? ['-auto-approve'] : [])],
-    ]),
 };

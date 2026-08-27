@@ -171,6 +171,14 @@ describe('synthesizeDomain', () => {
     expect(() => synthesizeDomain(model, 'orders', 'dev')).toThrow(/not supported by the azure-terraform engine yet/);
   });
 
+  it('rejects the ts-fusion runtime until fusion-azure exists', () => {
+    const model = makeModel();
+    model.domains[1].components.push(
+      component({ name: 'legacy', type: 'function', config: { entry: 'handler.ts', runtime: 'ts-fusion' } }),
+    );
+    expect(() => synthesizeDomain(model, 'orders', 'dev')).toThrow(/ts-fusion runtime, which is not available/);
+  });
+
   it('rejects fifo workers with a clear error', () => {
     const model = makeModel();
     model.domains[1].components.push(
