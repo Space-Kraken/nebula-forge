@@ -85,6 +85,12 @@ export default class GenerateEndpoint extends BaseCommand {
     writeArchitectureDocs(model.root);
 
     this.log(`✔ Attached ${method} ${route} to ${flags.module}/${apiName}`);
+    const api = domain.components.find((component) => component.name === apiName);
+    if (api?.type === 'http-api' && api.config.mount) {
+      this.log(
+        `ℹ Route topology changed on gateway ${api.config.mount} — deploy "${flags.module}" AND the gateway's module.`,
+      );
+    }
     this.log(`✔ Created controller, use case and test for "${args.name}"`);
     this.log('✔ Updated docs/architecture.md');
     this.log('');

@@ -78,6 +78,7 @@ Tipos de componente y a qué se traducen:
 | `bucket` | S3 privado y cifrado | Blob container |
 | `topic` | SNS | Service Bus topic |
 | `event-bus` | EventBridge | Event Grid topic |
+| `gateway` | API Gateway REST compartido (ver §9) | *(fase 1b — APIM/Front Door)* |
 | `static-site` | S3 + CloudFront (+WAF) | *(fase 1b — Front Door)* |
 
 ## 4. Endpoints (el API de cada dominio)
@@ -184,13 +185,13 @@ Requisitos por motor (una vez por entorno, con `forge bootstrap`):
 | `no prompts en CI` | Diseñado así (sin TTY no pregunta) | Usa los flags `--bind/--attach/--subscribe` |
 | Error con pista `↳` | Todo error de forge trae su cómo-arreglarlo | Léela: es la solución |
 
-## 9. 🚧 Gateway compartido: un API para N dominios *(diseño acordado, en camino)*
+## 9. Gateway compartido: un API para N dominios
 
 En muchos proyectos el API es **uno solo** (una URL, un dominio custom) y los
-dominios cuelgan de él por path. Para eso llega el tipo `gateway` — la
-recepción del edificio: una sola dirección, el guardia (authorizer) y el
-directorio de pisos. **Ahí no trabaja nadie**; quien atiende es el `http-api`
-de cada dominio.
+dominios cuelgan de él por path. Para eso existe el tipo `gateway` — la
+recepción del edificio: una sola dirección, el guardia (futuro authorizer) y
+el directorio de pisos. **Ahí no trabaja nadie**; quien atiende es el
+`http-api` de cada dominio.
 
 | | `gateway` | `http-api` |
 |---|---|---|
@@ -209,12 +210,24 @@ forge generate component api --module users --type http-api --mount platform/gat
 forge generate endpoint get-user --module users --method GET --route /users/{id}
 ```
 
-Sin `--mount`, el `http-api` se comporta como hoy (su propio API Gateway).
-Con él, el gateway materializa la unión de rutas de todos los montados
-integrando cada Lambda por nombre determinístico — sin exports entre stacks,
-mismo truco que el event-bus. Flexibilidad total: 1 API para N dominios, N
-APIs, o mixto. Trade-off asumido: cambiar rutas redespliega también el módulo
-del gateway (los deploys de *código* siguen 100% independientes).
+Sin `--mount`, el `http-api` provisiona su propio API Gateway (dominio 100%
+autónomo). Con él, el gateway materializa la unión de rutas de todos los
+montados integrando cada Lambda por nombre determinístico — sin exports entre
+stacks, mismo truco que el event-bus. Flexibilidad total: 1 API para N
+dominios, N APIs, o mixto — y se cambia después con
+`forge attach api -m users --mount platform/edge` / `forge detach … --mount`.
+
+Detalles que forge cuida por ti:
+- El endpoint inicial de un api **montado** nace namespaceado
+  (`/users/status`), así N dominios nunca colisionan en el gateway.
+- Rutas duplicadas o variables hermanas distintas **entre dominios** del mismo
+  gateway se rechazan al generar, con el nombre de ambos dueños.
+- Al agregar endpoints en un api montado, forge avisa: *"Route topology
+  changed — deploy users AND the gateway's module"*. Trade-off asumido:
+  cambiar rutas redespliega también el módulo del gateway (los deploys de
+  *código* siguen 100% independientes).
+- `forge remove component` del gateway se niega mientras haya apis montados
+  (`--force` los desmonta primero).
 
 Regla mnemotécnica: **si tiene endpoints es `http-api`; si tiene la URL es
 `gateway`.**

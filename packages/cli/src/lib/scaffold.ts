@@ -30,12 +30,12 @@ export interface ComponentDef {
   bindings?: Binding[];
 }
 
-/** Type-specific manifest defaults applied when no config is provided. */
-function defaultConfig(type: ComponentType): Record<string, unknown> | undefined {
-  // The generated fusion controller exposes GET /status, and fusion routes by
-  // exact httpMethod + resource match — routes must mirror the decorators.
-  if (type === 'http-api') return { routes: [{ method: 'GET', path: '/status' }] };
-  return undefined;
+/**
+ * Initial status route for a new http-api. On a shared gateway the route is
+ * namespaced by module, so several mounted domains never collide on /status.
+ */
+function statusRouteFor(moduleName: string, mounted: boolean): string {
+  return mounted ? `/${moduleName}/status` : '/status';
 }
 
 function assertValidName(kind: string, name: string): void {
@@ -135,9 +135,13 @@ export function scaffoldComponent(
     );
   }
 
-  // Merge (not replace) type defaults so e.g. an http-api created with extra
-  // config still declares the routes its generated status controller needs.
-  const config = { ...(defaultConfig(def.type) ?? {}), ...(def.config ?? {}) };
+  const config: Record<string, unknown> = { ...(def.config ?? {}) };
+  // The generated fusion controller exposes the status route, and fusion
+  // routes by exact httpMethod + resource match — routes must mirror it.
+  const statusRoute = statusRouteFor(moduleName, Boolean((def.config as { mount?: string } | undefined)?.mount));
+  if (def.type === 'http-api' && !config.routes) {
+    config.routes = [{ method: 'GET', path: statusRoute }];
+  }
   const manifest: Record<string, unknown> = { name: def.name, type: def.type };
   if (Object.keys(config).length > 0) manifest.config = config;
   if (def.bindings && def.bindings.length > 0) manifest.bindings = def.bindings;
@@ -148,10 +152,9 @@ export function scaffoldComponent(
     writeRendered(path.join(componentDir, file.target(def.name)), file.template, vars);
   }
   if (def.type === 'http-api') {
-    // The module's API Lambda starts with a GET /status endpoint, generated
-    // through the same machinery as `forge generate endpoint` (see the
-    // matching route in defaultConfig).
-    writeEndpointFiles(componentDir, { name: 'status', method: 'GET', route: '/status' });
+    // The module's API Lambda starts with a status endpoint, generated through
+    // the same machinery as `forge generate endpoint` (route matches config).
+    writeEndpointFiles(componentDir, { name: 'status', method: 'GET', route: statusRoute });
     regenerateControllersBarrel(componentDir);
   }
 

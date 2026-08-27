@@ -1,7 +1,7 @@
 import { Args, Flags } from '@oclif/core';
 import { ForgeError, FUNCTION_LIKE_TYPES, loadWorkspace } from '@forgecli/core';
 import { BaseCommand } from '../lib/base';
-import { attachBinding, attachSubscription, parseSubscribes } from '../lib/attach';
+import { attachBinding, attachMount, attachSubscription, parseSubscribes } from '../lib/attach';
 import { promptBusSubscription, promptOutboundBindings } from '../lib/coupling-prompts';
 import { writeArchitectureDocs } from '../lib/docs';
 import { canPrompt } from '../lib/interactive';
@@ -31,6 +31,7 @@ export default class Attach extends BaseCommand {
       description: 'subscribe to an event bus: <bus>:source=a,b[:detail-type=X] (repeatable)',
       multiple: true,
     }),
+    mount: Flags.string({ description: 'mount an http-api on a shared gateway: <gateway> or <domain>/<gateway>' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -61,7 +62,7 @@ export default class Attach extends BaseCommand {
       );
     }
 
-    if (bindings.length === 0 && subscriptions.length === 0) {
+    if (bindings.length === 0 && subscriptions.length === 0 && !flags.mount) {
       if (!canPrompt(flags['no-interactive'])) {
         throw new ForgeError(
           'Nothing to attach',
@@ -95,6 +96,14 @@ export default class Attach extends BaseCommand {
         added
           ? `✔ Subscribed ${args.component} to ${subscription.bus}`
           : `↷ ${args.component} already has that subscription to ${subscription.bus}`,
+      );
+    }
+    if (flags.mount) {
+      const added = attachMount(model.root, flags.module, args.component, flags.mount);
+      this.log(
+        added
+          ? `✔ Mounted ${args.component} on gateway ${flags.mount}`
+          : `↷ ${args.component} is already mounted on ${flags.mount}`,
       );
     }
 

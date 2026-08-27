@@ -19,11 +19,16 @@ projects. pnpm monorepo, TypeScript project references, oclif CLI.
 - `packages/engine-cdk` implements `Engine`: one `DomainStack` per domain,
   `builders.ts` per component type, `bindings.ts` turns declared bindings into
   least-privilege IAM grants + discovery env vars.
-- Bindings are same-domain only (validated in `core/src/loader.ts`), with ONE
-  exception: `event-bus` targets may be referenced cross-domain as
-  "domain/name". Buses are addressed by deterministic physical name
-  (`resourceNameFor` in core) — never introduce CloudFormation exports between
-  domain stacks (an engine test asserts no `Fn::ImportValue`).
+- Bindings are same-domain only (validated in `core/src/loader.ts`), with TWO
+  cross-domain exceptions referenced as "domain/name": `event-bus` targets and
+  `gateway` mounts (`http-api` config.mount). Both are addressed by
+  deterministic physical name (`resourceNameFor` in core) — the gateway stack
+  integrates mounted lambdas via ARNs built from Aws pseudo-parameters and
+  explicit CfnPermissions. Never introduce CloudFormation exports between
+  domain stacks (engine tests assert no `Fn::ImportValue`). Route validation
+  runs per GATEWAY GROUP (loader `validateApiRoutes`): duplicates and sibling
+  path variables are checked across every http-api mounted on the same
+  gateway; mounted status routes are namespaced `/{module}/status`.
 - `packages/engine-azure-tf` implements the same model for Azure by emitting
   **plain Terraform JSON** (no CDKTF): one root module per domain, RBAC role
   assignments + managed identities for bindings, Event Grid for events

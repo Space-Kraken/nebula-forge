@@ -289,6 +289,83 @@ describe('loadWorkspace', () => {
     expect(() => loadWorkspace(root)).toThrow(/Unrecognized key/i);
   });
 
+  it('allows http-apis to mount a cross-domain gateway', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': { name: 'edge', type: 'gateway' },
+      'domains/users/domain.json': { name: 'users' },
+      'domains/users/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'platform/edge', routes: [{ method: 'GET', path: '/users/{id}' }] },
+      },
+    });
+    expect(() => loadWorkspace(root)).not.toThrow();
+  });
+
+  it('rejects mounts to components that are not gateways', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/users/domain.json': { name: 'users' },
+      'domains/users/components/data/component.json': {
+        name: 'data',
+        type: 'table',
+        config: { partitionKey: { name: 'id' } },
+      },
+      'domains/users/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'data' },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/not a gateway/);
+  });
+
+  it('rejects route conflicts across http-apis mounted on the same gateway', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': { name: 'edge', type: 'gateway' },
+      'domains/users/domain.json': { name: 'users' },
+      'domains/users/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'platform/edge', routes: [{ method: 'GET', path: '/things' }] },
+      },
+      'domains/orders/domain.json': { name: 'orders' },
+      'domains/orders/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'platform/edge', routes: [{ method: 'GET', path: '/things' }] },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(
+      /Route GET \/things is declared by both "(orders|users)\/api" and "(orders|users)\/api" on gateway "platform\/edge"/,
+    );
+  });
+
+  it('rejects sibling path variables across http-apis on the same gateway', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': { name: 'edge', type: 'gateway' },
+      'domains/users/domain.json': { name: 'users' },
+      'domains/users/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'platform/edge', routes: [{ method: 'GET', path: '/items/{id}' }] },
+      },
+      'domains/orders/domain.json': { name: 'orders' },
+      'domains/orders/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'platform/edge', routes: [{ method: 'PUT', path: '/items/{itemId}' }] },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/sibling path variables/);
+  });
+
   it('fails with a helpful error outside a workspace', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-core-empty-'));
     createdDirs.push(root);

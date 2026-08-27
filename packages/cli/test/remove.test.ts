@@ -3,7 +3,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { loadWorkspace } from '@forgecli/core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { attachBinding, attachSubscription, detachBinding, detachSubscription } from '../src/lib/attach';
+import {
+  attachBinding,
+  attachMount,
+  attachSubscription,
+  detachBinding,
+  detachMount,
+  detachSubscription,
+} from '../src/lib/attach';
 import { addEndpoint } from '../src/lib/endpoints';
 import { findReferrers, removeComponent, removeEndpoint } from '../src/lib/remove';
 import { scaffoldComponent, scaffoldModule, scaffoldWorkspace } from '../src/lib/scaffold';
@@ -63,6 +70,49 @@ describe('attachSubscription / detach', () => {
     const model = loadWorkspace(root);
     const api = model.domains.find((d) => d.name === 'orders')!.components.find((c) => c.name === 'api');
     expect(api?.bindings).toEqual([]);
+  });
+});
+
+describe('gateway mounts', () => {
+  it('mounts and unmounts an http-api on a cross-domain gateway', () => {
+    const root = makeWorkspace();
+    scaffoldComponent(root, 'platform', { name: 'edge', type: 'gateway' });
+
+    expect(attachMount(root, 'orders', 'api', 'platform/edge')).toBe(true);
+    expect(attachMount(root, 'orders', 'api', 'platform/edge')).toBe(false);
+    const model = loadWorkspace(root);
+    const api = model.domains.find((d) => d.name === 'orders')!.components.find((c) => c.name === 'api');
+    if (api?.type !== 'http-api') throw new Error('expected http-api');
+    expect(api.config.mount).toBe('platform/edge');
+
+    expect(detachMount(root, 'orders', 'api')).toBe(true);
+    expect(detachMount(root, 'orders', 'api')).toBe(false);
+  });
+
+  it('refuses to mount non-http-api components and remounts require detach', () => {
+    const root = makeWorkspace();
+    scaffoldComponent(root, 'platform', { name: 'edge', type: 'gateway' });
+    scaffoldComponent(root, 'platform', { name: 'edge2', type: 'gateway' });
+    expect(() => attachMount(root, 'orders', 'data', 'platform/edge')).toThrow(/only http-api components mount/);
+    attachMount(root, 'orders', 'api', 'platform/edge');
+    expect(() => attachMount(root, 'orders', 'api', 'platform/edge2')).toThrow(/already mounted/);
+  });
+
+  it('removeComponent on a gateway refuses while mounted, and --force unmounts', () => {
+    const root = makeWorkspace();
+    scaffoldComponent(root, 'platform', { name: 'edge', type: 'gateway' });
+    attachMount(root, 'orders', 'api', 'platform/edge');
+
+    expect(() => removeComponent(root, 'platform', 'edge', { force: false })).toThrow(
+      /still used by: orders\/api \(mount "platform\/edge"\)/,
+    );
+    const detached = removeComponent(root, 'platform', 'edge', { force: true });
+    expect(detached).toEqual([{ domain: 'orders', component: 'api', ref: 'platform/edge', kind: 'mount' }]);
+
+    const model = loadWorkspace(root);
+    const api = model.domains.find((d) => d.name === 'orders')!.components.find((c) => c.name === 'api');
+    if (api?.type !== 'http-api') throw new Error('expected http-api');
+    expect(api.config.mount).toBeUndefined();
   });
 });
 

@@ -119,6 +119,38 @@ export function detachSubscription(root: string, moduleName: string, componentNa
   });
 }
 
+/** Mounts an existing http-api on a shared gateway. Returns false when already mounted there. */
+export function attachMount(root: string, moduleName: string, componentName: string, gatewayRef: string): boolean {
+  const file = componentManifestPath(root, moduleName, componentName);
+  return editManifest(root, file, (manifest) => {
+    if (manifest.type !== 'http-api') {
+      throw new ForgeError(
+        `Component "${moduleName}/${componentName}" is a ${manifest.type}; only http-api components mount gateways`,
+      );
+    }
+    manifest.config = manifest.config ?? {};
+    if (manifest.config.mount === gatewayRef) return false;
+    if (manifest.config.mount) {
+      throw new ForgeError(
+        `Component "${moduleName}/${componentName}" is already mounted on "${manifest.config.mount}"`,
+        `Detach it first: forge detach ${componentName} --module ${moduleName} --mount`,
+      );
+    }
+    manifest.config.mount = gatewayRef;
+    return true;
+  });
+}
+
+/** Unmounts an http-api (it goes back to provisioning its own gateway). */
+export function detachMount(root: string, moduleName: string, componentName: string): boolean {
+  const file = componentManifestPath(root, moduleName, componentName);
+  return editManifest(root, file, (manifest) => {
+    if (!manifest.config?.mount) return false;
+    delete manifest.config.mount;
+    return true;
+  });
+}
+
 /** Parses repeated --attach flags of the form "<consumer>:<access>". */
 export function parseAttaches(values: string[] | undefined): { consumer: string; access: Binding['access'] }[] {
   if (!values) return [];

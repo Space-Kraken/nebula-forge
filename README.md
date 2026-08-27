@@ -34,7 +34,7 @@ checkout, workspaces `--link` y ciclo de pruebas.
 |---|---|---|
 | **Workspace** | El proyecto (`forge.json`: motor + entornos) | — |
 | **Módulo (dominio)** | Un dominio de negocio, aislado y desplegable | 1 stack de CloudFormation por entorno |
-| **Componente** | Una pieza de arquitectura dentro del módulo | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus` |
+| **Componente** | Una pieza de arquitectura dentro del módulo | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus`, `gateway` |
 | **Binding** | Dependencia declarada entre componentes | IAM de mínimo privilegio + env vars de descubrimiento (`TABLE_X_NAME`, `QUEUE_X_URL`) |
 | **Blueprint** | Arquitectura de referencia completa | `serverless-api`, `queue-processing`, `scheduled-tasks`, `web-app`, `event-driven` |
 
@@ -48,7 +48,10 @@ fallback y WAF opcional).
 
 La convención para APIs es **una Lambda por dominio**: un componente
 `http-api` por módulo, y fusion rutea los controllers de ese dominio dentro de
-la Lambda — por eso las Lambdas son hexagonales.
+la Lambda — por eso las Lambdas son hexagonales. ¿Un solo API para todo el
+proyecto? Crea un `gateway` compartido y monta los `http-api` con `--mount
+platform/edge`: el gateway publica la unión de rutas integrando cada Lambda
+por nombre determinístico (1 API para N dominios, N APIs, o mixto).
 
 ### Buenas prácticas incorporadas
 

@@ -277,6 +277,88 @@ describe('event-driven wiring', () => {
   });
 });
 
+describe('shared gateway', () => {
+  function gatewayModel(): WorkspaceModel {
+    return {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: { dev: { region: 'us-east-1' } },
+      root: fixturesDir,
+      domains: [
+        {
+          name: 'platform',
+          path: fixturesDir,
+          components: [component({ name: 'edge', type: 'gateway' })],
+        },
+        {
+          name: 'users',
+          path: fixturesDir,
+          components: [
+            component({
+              name: 'api',
+              type: 'http-api',
+              config: { entry: 'handler.ts', mount: 'platform/edge', routes: [{ method: 'GET', path: '/users/{id}' }] },
+            }),
+          ],
+        },
+        {
+          name: 'orders',
+          path: fixturesDir,
+          components: [
+            component({
+              name: 'api',
+              type: 'http-api',
+              config: { entry: 'handler.ts', mount: 'platform/edge', routes: [{ method: 'POST', path: '/orders' }] },
+            }),
+          ],
+        },
+      ],
+    };
+  }
+
+  it('publishes the union of mounted routes, integrating lambdas by deterministic ARN', () => {
+    const { stacks } = createApp(gatewayModel(), { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.resourceCountIs('AWS::ApiGateway::RestApi', 1);
+    template.hasResourceProperties('AWS::ApiGateway::Resource', { PathPart: '{id}' });
+    template.hasResourceProperties('AWS::ApiGateway::Resource', { PathPart: 'orders' });
+
+    // one explicit invoke permission per mounted lambda, by constructed ARN
+    template.resourceCountIs('AWS::Lambda::Permission', 2);
+    template.hasResourceProperties('AWS::Lambda::Permission', {
+      Principal: 'apigateway.amazonaws.com',
+      FunctionName: Match.objectLike({
+        'Fn::Join': Match.arrayWith([
+          Match.arrayWith([Match.stringLikeRegexp(':function:shop-users-api-dev')]),
+        ]),
+      }),
+    });
+
+    // decoupling invariant: no CloudFormation exports between domains
+    expect(JSON.stringify(template.toJSON())).not.toContain('Fn::ImportValue');
+  });
+
+  it('mounted http-apis ship only their lambda; unmounted keep their own gateway', () => {
+    const { stacks } = createApp(gatewayModel(), { environment: 'dev', outdir: outdir() });
+    const users = Template.fromStack(stacks.get('users')!);
+    users.resourceCountIs('AWS::ApiGateway::RestApi', 0);
+    users.resourceCountIs('AWS::Lambda::Function', 1);
+  });
+
+  it('an empty gateway still deploys with a 404 placeholder', () => {
+    const model = gatewayModel();
+    model.domains = [model.domains[0]];
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+    template.hasResourceProperties('AWS::ApiGateway::Method', {
+      HttpMethod: 'GET',
+      Integration: Match.objectLike({ Type: 'MOCK' }),
+    });
+  });
+});
+
 describe('static sites', () => {
   function siteModel(config: Record<string, unknown> = {}, region = 'us-east-1'): WorkspaceModel {
     return {

@@ -23,6 +23,7 @@ const COMPONENT_TYPES: ComponentType[] = [
   'topic',
   'static-site',
   'event-bus',
+  'gateway',
 ];
 
 const SUBSCRIBER_TYPES: ComponentType[] = ['queue-worker', 'function'];
@@ -65,6 +66,9 @@ export default class GenerateComponent extends BaseCommand {
       description: 'subscribe the new worker/function to an event bus: <bus>:source=a,b[:detail-type=X] (repeatable)',
       multiple: true,
     }),
+    mount: Flags.string({
+      description: 'mount the new http-api on a shared gateway: <gateway> or <domain>/<gateway>',
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -90,8 +94,18 @@ export default class GenerateComponent extends BaseCommand {
         'Only queue-worker and function components can subscribe to event buses.',
       );
     }
+    if (flags.mount && type !== 'http-api') {
+      throw new ForgeError(
+        `--mount does not apply to ${type} components`,
+        'Only http-api components mount on a shared gateway.',
+      );
+    }
+    let mount = flags.mount;
 
     if (canPrompt(flags['no-interactive'])) {
+      if (type === 'http-api' && !mount) {
+        mount = await this.promptMount(model, domain, args.name);
+      }
       if (FUNCTION_LIKE_TYPES.includes(type) && bindings.length === 0) {
         bindings.push(...(await promptOutboundBindings(model, domain, args.name)));
       }
@@ -112,6 +126,7 @@ export default class GenerateComponent extends BaseCommand {
     const config: Record<string, unknown> = {};
     if (type === 'table') config.partitionKey = { name: flags['partition-key'] };
     if (subscriptions.length > 0) config.subscriptions = subscriptions;
+    if (mount) config.mount = mount;
 
     const componentDir = scaffoldComponent(model.root, flags.module, {
       name: args.name,
@@ -143,6 +158,9 @@ export default class GenerateComponent extends BaseCommand {
     }
     for (const subscription of subscriptions) {
       this.log(`✔ Subscribed ${args.name} to ${subscription.bus}`);
+    }
+    if (mount) {
+      this.log(`✔ Mounted ${args.name} on gateway ${mount}`);
     }
 
     writeArchitectureDocs(model.root);
@@ -186,6 +204,26 @@ export default class GenerateComponent extends BaseCommand {
         );
       }
     }
+  }
+
+  /** "Own API Gateway, or hang off a shared one?" */
+  private async promptMount(
+    model: WorkspaceModel,
+    domain: DomainSpec,
+    newName: string,
+  ): Promise<string | undefined> {
+    const gateways = model.domains.flatMap((candidate) =>
+      candidate.components
+        .filter((component) => component.type === 'gateway')
+        .map((component) =>
+          candidate.name === domain.name ? component.name : `${candidate.name}/${component.name}`,
+        ),
+    );
+    if (gateways.length === 0) return undefined;
+    return promptSelect<string | undefined>(`Mount ${newName} on a shared gateway?`, [
+      { name: 'no — provision its own API Gateway', value: undefined },
+      ...gateways.map((gateway) => ({ name: gateway, value: gateway })),
+    ]);
   }
 
   /** "Which existing components should use the new resource?" */

@@ -30,6 +30,9 @@ export default class List extends BaseCommand {
             relations.push(`⇐ ${subscription.bus} (subscribed)`);
           }
         }
+        if (component.type === 'http-api' && component.config.mount) {
+          relations.push(`⇒ ${component.config.mount} (mounted)`);
+        }
         this.log(`  ${component.name.padEnd(16)} ${component.type.padEnd(14)} ${relations.join(' ')}`.trimEnd());
       }
       this.log('');

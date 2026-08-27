@@ -91,6 +91,12 @@ const functionBaseConfig = z.object({
   memoryMb: z.number().int().min(128).max(10240).default(256),
   timeoutSeconds: z.number().int().min(1).max(900).default(30),
   environment: z.record(z.string()).default({}),
+  /**
+   * Handler flavor. Today only 'ts-fusion' (hexagonal TypeScript on
+   * @fusion-framework/server); a plain 'ts' runtime and other languages are
+   * planned — the hexagonal layout is the invariant, the framework is not.
+   */
+  runtime: z.enum(['ts-fusion']).optional(),
 });
 
 export const functionConfigSchema = functionBaseConfig
@@ -122,6 +128,12 @@ export const httpApiConfigSchema = functionBaseConfig
       .array(routeSchema)
       .min(1)
       .default([{ method: 'ANY', path: '/{proxy+}' }]),
+    /**
+     * Shared gateway this API mounts on ("name" or "domain/name"). When set,
+     * the domain builds only its Lambda; the gateway publishes the routes.
+     * Unset = the component provisions its own gateway (fully autonomous).
+     */
+    mount: componentRefSchema.optional(),
   })
   .strict();
 
@@ -176,6 +188,9 @@ export const staticSiteConfigSchema = z
 
 export const eventBusConfigSchema = z.object({}).strict();
 
+/** The shared edge (API front door). Future: authorizer, custom domain. */
+export const gatewayConfigSchema = z.object({}).strict();
+
 const componentBase = {
   name: nameSchema,
   description: z.string().optional(),
@@ -191,4 +206,5 @@ export const componentManifestSchema = z.discriminatedUnion('type', [
   z.object({ ...componentBase, type: z.literal('topic'), config: topicConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('static-site'), config: staticSiteConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('event-bus'), config: eventBusConfigSchema.default({}) }).strict(),
+  z.object({ ...componentBase, type: z.literal('gateway'), config: gatewayConfigSchema.default({}) }).strict(),
 ]);

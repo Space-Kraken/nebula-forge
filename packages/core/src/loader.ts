@@ -13,6 +13,7 @@ import {
   WorkspaceManifest,
   WorkspaceModel,
 } from './model';
+import { resourceNameFor } from './names';
 import { isVariableSegment } from './routes';
 import { componentManifestSchema, domainManifestSchema, workspaceManifestSchema } from './schema';
 
@@ -151,33 +152,102 @@ function validateModel(model: WorkspaceModel): void {
     for (const component of domain.components) {
       validateBindings(model, domain, component);
       validateSubscriptions(model, domain, component);
-      validateRoutes(domain, component);
     }
   }
+  validateApiRoutes(model);
+}
+
+interface ApiGroupMember {
+  domain: DomainSpec;
+  component: Extract<ComponentSpec, { type: 'http-api' }>;
 }
 
 /**
- * API Gateway allows only ONE variable path part per resource level, and
- * rejects the stack at deploy time otherwise — catch it when loading instead.
+ * Route validation runs per ROUTE GROUP: every http-api mounted on the same
+ * gateway shares one API Gateway, so duplicate routes and sibling path
+ * variables must be consistent across all of them (API Gateway allows only
+ * one variable path part per resource level and rejects the deploy
+ * otherwise). Unmounted http-apis form their own single-member group.
  */
-function validateRoutes(domain: DomainSpec, component: ComponentSpec): void {
-  if (component.type !== 'http-api') return;
-  const variableChildren = new Map<string, string>();
-  for (const route of component.config.routes) {
-    if (route.path === '/') continue;
-    let parent = '';
-    for (const segment of route.path.slice(1).split('/')) {
-      if (isVariableSegment(segment)) {
-        const existing = variableChildren.get(parent);
-        if (existing && existing !== segment) {
+function validateApiRoutes(model: WorkspaceModel): void {
+  const groups = new Map<string, { label: string; members: ApiGroupMember[] }>();
+
+  for (const domain of model.domains) {
+    for (const component of domain.components) {
+      if (component.type !== 'http-api') continue;
+      let key = `self:${domain.name}/${component.name}`;
+      let label = `"${domain.name}/${component.name}"`;
+
+      if (component.config.mount) {
+        const resolved = resolveBinding(model, domain, component.config.mount);
+        if (!resolved) {
           throw new ForgeError(
-            `Component "${domain.name}/${component.name}" declares sibling path variables "${existing}" and "${segment}" under "${parent || '/'}"`,
-            'API Gateway allows only one variable path part per resource level — use the same parameter name in every route (e.g. always {id}).',
+            `Component "${domain.name}/${component.name}" mounts unknown gateway "${component.config.mount}"`,
+            'Reference a gateway component as "name" (same domain) or "domain/name".',
           );
         }
-        variableChildren.set(parent, segment);
+        if (resolved.component.type !== 'gateway') {
+          throw new ForgeError(
+            `Component "${domain.name}/${component.name}" mounts "${component.config.mount}", which is a ${resolved.component.type}, not a gateway`,
+          );
+        }
+        // The gateway integrates this Lambda by deterministic ARN, so the
+        // physical function name must exist (Lambda caps names at 64 chars).
+        for (const envName of Object.keys(model.environments)) {
+          const physical = resourceNameFor(model.name, domain.name, component.name, envName);
+          if (physical.length > 64) {
+            throw new ForgeError(
+              `Component "${domain.name}/${component.name}" cannot mount a gateway: its physical name "${physical}" exceeds Lambda's 64-character limit`,
+              'Shorten the app, module or component name.',
+            );
+          }
+        }
+        key = `gw:${resolved.domain.name}/${resolved.component.name}`;
+        label = `gateway "${resolved.domain.name}/${resolved.component.name}"`;
       }
-      parent = `${parent}/${segment}`;
+
+      const group = groups.get(key) ?? { label, members: [] };
+      group.members.push({ domain, component });
+      groups.set(key, group);
+    }
+  }
+
+  for (const group of groups.values()) {
+    const routeOwners = new Map<string, string>();
+    const variableChildren = new Map<string, { segment: string; owner: string }>();
+    for (const member of group.members) {
+      const owner = `${member.domain.name}/${member.component.name}`;
+      for (const route of member.component.config.routes) {
+        const routeKey = `${route.method} ${route.path}`;
+        const existingOwner = routeOwners.get(routeKey);
+        if (existingOwner) {
+          throw new ForgeError(
+            `Route ${routeKey} is declared by both "${existingOwner}" and "${owner}" on ${group.label}`,
+            'Each route on a shared gateway must belong to exactly one component.',
+          );
+        }
+        routeOwners.set(routeKey, owner);
+
+        if (route.path === '/') continue;
+        let parent = '';
+        for (const segment of route.path.slice(1).split('/')) {
+          if (isVariableSegment(segment)) {
+            const known = variableChildren.get(parent);
+            if (known && known.segment !== segment) {
+              const who =
+                known.owner === owner
+                  ? `Component "${owner}" declares`
+                  : `Components "${known.owner}" and "${owner}" declare`;
+              throw new ForgeError(
+                `${who} sibling path variables "${known.segment}" and "${segment}" under "${parent || '/'}" on ${group.label}`,
+                'API Gateway allows only one variable path part per resource level — use the same parameter name in every route (e.g. always {id}).',
+              );
+            }
+            variableChildren.set(parent, { segment, owner });
+          }
+          parent = `${parent}/${segment}`;
+        }
+      }
     }
   }
 }
