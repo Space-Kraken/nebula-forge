@@ -65,6 +65,12 @@ Fusion facts verified against fusion 1.4.1 — recheck on upgrade:
 - SQS workers use a forge-generated adapter returning `batchItemFailures`
   (fusion's listener pipeline swallows errors → would ack failed messages).
 
+- `auth` (Cognito User Pool + client) attaches to gateways/unmounted http-apis
+  in the SAME module only (pool ids are not deterministic → colocated stack;
+  auth builds first in DomainStack). Routes accept `public: true` to skip the
+  authorizer (scaffolded status routes are public). Mounted apis inherit the
+  gateway's authorizer and must not declare their own.
+
 ## Attachments (acoples)
 
 Generation is attachment-aware: `generate component` prompts on a TTY

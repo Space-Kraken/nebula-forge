@@ -347,6 +347,34 @@ describe('shared gateway', () => {
     users.resourceCountIs('AWS::Lambda::Function', 1);
   });
 
+  it('protects mounted routes with the gateway auth, honoring public routes', () => {
+    const model = gatewayModel();
+    model.domains[0].components.push(component({ name: 'identity', type: 'auth' }));
+    model.domains[0].components[0] = component({ name: 'edge', type: 'gateway', config: { auth: 'identity' } });
+    model.domains[1].components[0] = component({
+      name: 'api',
+      type: 'http-api',
+      config: {
+        entry: 'handler.ts',
+        mount: 'platform/edge',
+        routes: [
+          { method: 'GET', path: '/users/{id}' },
+          { method: 'GET', path: '/users/status', public: true },
+        ],
+      },
+    });
+    model.domains = [model.domains[0], model.domains[1]];
+
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.resourceCountIs('AWS::Cognito::UserPool', 1);
+    template.hasResourceProperties('AWS::ApiGateway::Authorizer', { Type: 'COGNITO_USER_POOLS' });
+    // one protected method (/users/{id}) and one public (/users/status)
+    template.resourcePropertiesCountIs('AWS::ApiGateway::Method', { AuthorizationType: 'COGNITO_USER_POOLS' }, 1);
+    template.resourcePropertiesCountIs('AWS::ApiGateway::Method', { AuthorizationType: 'NONE' }, 1);
+  });
+
   it('an empty gateway still deploys with a 404 placeholder', () => {
     const model = gatewayModel();
     model.domains = [model.domains[0]];

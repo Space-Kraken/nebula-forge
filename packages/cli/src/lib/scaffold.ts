@@ -145,7 +145,8 @@ export function scaffoldComponent(
   // routes by exact httpMethod + resource match — routes must mirror it.
   const statusRoute = statusRouteFor(moduleName, Boolean((def.config as { mount?: string } | undefined)?.mount));
   if (def.type === 'http-api' && !config.routes) {
-    config.routes = [{ method: 'GET', path: statusRoute }];
+    // Health checks stay reachable even when an authorizer protects the API.
+    config.routes = [{ method: 'GET', path: statusRoute, public: true }];
   }
   const manifest: Record<string, unknown> = { name: def.name, type: def.type };
   if (Object.keys(config).length > 0) manifest.config = config;

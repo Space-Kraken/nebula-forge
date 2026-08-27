@@ -5,7 +5,7 @@ import { toNcrontab } from './schedule';
 import { addData, addResource, ref, TfDocument } from './tf';
 
 /** Component types the azure-terraform engine does not cover yet. */
-export const AZURE_UNSUPPORTED_TYPES = ['http-api', 'static-site', 'gateway'] as const;
+export const AZURE_UNSUPPORTED_TYPES = ['http-api', 'static-site', 'gateway', 'auth'] as const;
 
 const COSMOS_DATA_READER = '00000000-0000-0000-0000-000000000001';
 const COSMOS_DATA_CONTRIBUTOR = '00000000-0000-0000-0000-000000000002';

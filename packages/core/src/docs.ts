@@ -19,6 +19,7 @@ const TYPE_BADGES: Record<string, string> = {
   'static-site': '🖥️',
   'event-bus': '🚌',
   gateway: '🚪',
+  auth: '🔐',
 };
 
 interface NodeShape {
@@ -39,6 +40,7 @@ const TYPE_SHAPES: Record<string, NodeShape> = {
   'static-site': { open: '[/', close: '/]' },
   'event-bus': { open: '((', close: '))' },
   gateway: { open: '[\\', close: '\\]' },
+  auth: { open: '([', close: '])' },
 };
 
 /** Mermaid edge labels go inside |"…"|; keep quotes out of the raw text. */
@@ -116,6 +118,9 @@ export function renderArchitectureMermaid(model: WorkspaceModel): string {
           lines.push(`  ${gw} -.->${edgeLabel('routes')} ${from}`);
         }
       }
+      if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
+        lines.push(`  ${from} -->${edgeLabel('auth')} ${mermaidId(domain.name, component.config.auth)}`);
+      }
     }
   }
 
@@ -138,6 +143,9 @@ function componentRow(model: WorkspaceModel, domain: DomainSpec, component: Comp
   }
   if (component.type === 'http-api' && component.config.mount) {
     relations.push(`⇒ ${component.config.mount} (mounted)`);
+  }
+  if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
+    relations.push(`→ ${component.config.auth} (authorizer)`);
   }
 
   const envVars =

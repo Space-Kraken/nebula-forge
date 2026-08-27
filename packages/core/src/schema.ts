@@ -129,6 +129,8 @@ export const routeSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue });
       }
     }),
+    /** Skip the API's authorizer for this route (e.g. health checks, webhooks). */
+    public: z.boolean().optional(),
   })
   .strict();
 
@@ -144,6 +146,11 @@ export const httpApiConfigSchema = functionBaseConfig
      * Unset = the component provisions its own gateway (fully autonomous).
      */
     mount: componentRefSchema.optional(),
+    /**
+     * auth component (same module) protecting this API's routes. Only for
+     * UNMOUNTED apis — a mounted api inherits the gateway's authorizer.
+     */
+    auth: nameSchema.optional(),
   })
   .strict();
 
@@ -198,8 +205,25 @@ export const staticSiteConfigSchema = z
 
 export const eventBusConfigSchema = z.object({}).strict();
 
-/** The shared edge (API front door). Future: authorizer, custom domain. */
-export const gatewayConfigSchema = z.object({}).strict();
+/** The shared edge (API front door). Future: custom domain. */
+export const gatewayConfigSchema = z
+  .object({
+    /**
+     * auth component (same module) whose authorizer protects every route the
+     * gateway publishes, except routes marked public. Identity pools are not
+     * deterministic across accounts, so auth and gateway stay colocated.
+     */
+    auth: nameSchema.optional(),
+  })
+  .strict();
+
+/** Identity provider (AWS: Cognito User Pool + client). */
+export const authConfigSchema = z
+  .object({
+    /** Allow users to sign themselves up (default: only admins create users). */
+    selfSignUp: z.boolean().default(false),
+  })
+  .strict();
 
 const componentBase = {
   name: nameSchema,
@@ -217,4 +241,5 @@ export const componentManifestSchema = z.discriminatedUnion('type', [
   z.object({ ...componentBase, type: z.literal('static-site'), config: staticSiteConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('event-bus'), config: eventBusConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('gateway'), config: gatewayConfigSchema.default({}) }).strict(),
+  z.object({ ...componentBase, type: z.literal('auth'), config: authConfigSchema.default({}) }).strict(),
 ]);

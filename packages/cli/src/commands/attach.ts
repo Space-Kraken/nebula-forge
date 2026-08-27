@@ -1,7 +1,7 @@
 import { Args, Flags } from '@oclif/core';
 import { ForgeError, FUNCTION_LIKE_TYPES, loadWorkspace } from '@forgecli/core';
 import { BaseCommand } from '../lib/base';
-import { attachBinding, attachMount, attachSubscription, parseSubscribes } from '../lib/attach';
+import { attachAuth, attachBinding, attachMount, attachSubscription, parseSubscribes } from '../lib/attach';
 import { promptBusSubscription, promptOutboundBindings } from '../lib/coupling-prompts';
 import { writeArchitectureDocs } from '../lib/docs';
 import { canPrompt } from '../lib/interactive';
@@ -32,6 +32,7 @@ export default class Attach extends BaseCommand {
       multiple: true,
     }),
     mount: Flags.string({ description: 'mount an http-api on a shared gateway: <gateway> or <domain>/<gateway>' }),
+    auth: Flags.string({ description: 'protect a gateway/http-api with an auth component from the same module' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -62,7 +63,7 @@ export default class Attach extends BaseCommand {
       );
     }
 
-    if (bindings.length === 0 && subscriptions.length === 0 && !flags.mount) {
+    if (bindings.length === 0 && subscriptions.length === 0 && !flags.mount && !flags.auth) {
       if (!canPrompt(flags['no-interactive'])) {
         throw new ForgeError(
           'Nothing to attach',
@@ -104,6 +105,14 @@ export default class Attach extends BaseCommand {
         added
           ? `✔ Mounted ${args.component} on gateway ${flags.mount}`
           : `↷ ${args.component} is already mounted on ${flags.mount}`,
+      );
+    }
+    if (flags.auth) {
+      const added = attachAuth(model.root, flags.module, args.component, flags.auth);
+      this.log(
+        added
+          ? `✔ Protected ${args.component} with auth ${flags.auth}`
+          : `↷ ${args.component} is already protected by ${flags.auth}`,
       );
     }
 

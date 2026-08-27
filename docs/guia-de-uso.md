@@ -79,6 +79,7 @@ Tipos de componente y a qué se traducen:
 | `topic` | SNS | Service Bus topic |
 | `event-bus` | EventBridge | Event Grid topic |
 | `gateway` | API Gateway REST compartido (ver §9) | *(fase 1b — APIM/Front Door)* |
+| `auth` | Cognito User Pool + client (ver §9) | *(fase 1b — Entra External ID)* |
 | `static-site` | S3 + CloudFront (+WAF) | *(fase 1b — Front Door)* |
 
 ### Runtimes: fusion es opcional
@@ -246,3 +247,22 @@ Detalles que forge cuida por ti:
 
 Regla mnemotécnica: **si tiene endpoints es `http-api`; si tiene la URL es
 `gateway`.**
+
+### Autenticación: el guardia de la recepción
+
+El tipo `auth` (Cognito User Pool + app client, con outputs de UserPoolId y
+ClientId para el frontend) se acopla al gateway — o a un `http-api` no
+montado — **del mismo módulo** (los pool ids no son determinísticos, así que
+conviven en el stack):
+
+```bash
+forge generate component identity --module platform --type auth
+forge attach edge --module platform --auth identity     # protege TODO el gateway
+forge generate endpoint health --module users --method GET --route /users/health --public
+```
+
+Con auth acoplado, toda ruta exige un JWT del pool salvo las marcadas
+`--public` (los `/status` generados nacen públicos — health checks). Los
+claims llegan al handler en `event.requestContext.authorizer.claims`.
+`forge detach edge -m platform --auth` lo quita; eliminar el `auth` exige
+desacoplarlo primero (o `--force`).

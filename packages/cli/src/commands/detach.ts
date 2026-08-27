@@ -1,12 +1,12 @@
 import { Args, Flags } from '@oclif/core';
 import { ForgeError, loadWorkspace } from '@forgecli/core';
 import { BaseCommand } from '../lib/base';
-import { detachBinding, detachMount, detachSubscription } from '../lib/attach';
+import { detachAuth, detachBinding, detachMount, detachSubscription } from '../lib/attach';
 import { writeArchitectureDocs } from '../lib/docs';
 import { canPrompt, promptCheckbox } from '../lib/interactive';
 
 interface Coupling {
-  kind: 'binding' | 'subscription' | 'mount';
+  kind: 'binding' | 'subscription' | 'mount' | 'auth';
   ref: string;
   label: string;
 }
@@ -29,6 +29,7 @@ export default class Detach extends BaseCommand {
     bind: Flags.string({ description: 'binding target to remove (repeatable)', multiple: true }),
     subscribe: Flags.string({ description: 'event bus subscription to remove (repeatable)', multiple: true }),
     mount: Flags.boolean({ description: 'unmount from the shared gateway (back to its own API Gateway)' }),
+    auth: Flags.boolean({ description: 'remove the authorizer (routes become public)' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -45,6 +46,7 @@ export default class Detach extends BaseCommand {
       ...(flags.bind ?? []).map((ref): Coupling => ({ kind: 'binding', ref, label: `→ ${ref}` })),
       ...(flags.subscribe ?? []).map((ref): Coupling => ({ kind: 'subscription', ref, label: `⇐ ${ref}` })),
       ...(flags.mount ? [{ kind: 'mount', ref: '(gateway)', label: '⇒ gateway mount' } as Coupling] : []),
+      ...(flags.auth ? [{ kind: 'auth', ref: '(authorizer)', label: '→ authorizer' } as Coupling] : []),
     ];
 
     if (couplings.length === 0) {
@@ -60,6 +62,9 @@ export default class Detach extends BaseCommand {
       }
       if (component.type === 'http-api' && component.config.mount) {
         current.push({ kind: 'mount', ref: component.config.mount, label: `⇒ ${component.config.mount} (mounted)` });
+      }
+      if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
+        current.push({ kind: 'auth', ref: component.config.auth, label: `→ ${component.config.auth} (authorizer)` });
       }
       if (current.length === 0) {
         this.log(`Component "${args.component}" has no couplings.`);
@@ -87,10 +92,12 @@ export default class Detach extends BaseCommand {
           ? detachBinding(model.root, flags.module, args.component, coupling.ref)
           : coupling.kind === 'subscription'
             ? detachSubscription(model.root, flags.module, args.component, coupling.ref)
-            : detachMount(model.root, flags.module, args.component);
+            : coupling.kind === 'mount'
+              ? detachMount(model.root, flags.module, args.component)
+              : detachAuth(model.root, flags.module, args.component);
       this.log(
         removed
-          ? `✔ Detached ${args.component} ${coupling.kind === 'binding' ? '→' : coupling.kind === 'subscription' ? '⇐' : '⇒'} ${coupling.ref}`
+          ? `✔ Detached ${args.component} ${coupling.kind === 'subscription' ? '⇐' : coupling.kind === 'mount' ? '⇒' : '→'} ${coupling.ref}`
           : `↷ ${args.component} had no ${coupling.kind} to ${coupling.ref}`,
       );
     }

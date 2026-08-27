@@ -31,8 +31,12 @@ export class DomainStack extends Stack {
       production: envSpec?.production ?? props.environment === 'prod',
     };
 
-    for (const spec of props.domain.components) {
-      this.components.set(spec.name, buildComponent(this, spec, ctx));
+    // auth builds first: gateways/apis in the same stack reference its pool.
+    const ordered = [...props.domain.components].sort(
+      (a, b) => (a.type === 'auth' ? 0 : 1) - (b.type === 'auth' ? 0 : 1),
+    );
+    for (const spec of ordered) {
+      this.components.set(spec.name, buildComponent(this, spec, ctx, this.components));
     }
     applyBindings(this, ctx, this.components);
     applySubscriptions(this, ctx, this.components);

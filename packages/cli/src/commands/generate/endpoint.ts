@@ -26,6 +26,9 @@ export default class GenerateEndpoint extends BaseCommand {
     api: Flags.string({
       description: 'http-api component that owns the endpoint (inferred when the module has exactly one)',
     }),
+    public: Flags.boolean({
+      description: 'skip the API’s authorizer for this endpoint (health checks, webhooks)',
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -81,7 +84,7 @@ export default class GenerateEndpoint extends BaseCommand {
       route = await promptInput('Route:', `/${args.name}`);
     }
 
-    addEndpoint(model.root, flags.module, apiName, { name: args.name, method, route });
+    addEndpoint(model.root, flags.module, apiName, { name: args.name, method, route, public: flags.public });
     writeArchitectureDocs(model.root);
 
     this.log(`✔ Attached ${method} ${route} to ${flags.module}/${apiName}`);

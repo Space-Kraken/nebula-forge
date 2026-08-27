@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { Aws, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { EventBus, Rule, Schedule } from 'aws-cdk-lib/aws-events';
@@ -47,13 +48,38 @@ function statefulRemovalPolicy(ctx: BuildContext): RemovalPolicy {
 
 function addRestRoutes(
   api: apigateway.RestApi,
-  routes: { method: string; path: string }[],
+  routes: { method: string; path: string; public?: boolean }[],
   integration: apigateway.Integration,
+  authorizer?: apigateway.CognitoUserPoolsAuthorizer,
 ): void {
   for (const route of routes) {
     const resource = route.path === '/' ? api.root : api.root.resourceForPath(route.path);
-    resource.addMethod(route.method, integration);
+    resource.addMethod(
+      route.method,
+      integration,
+      authorizer && !route.public
+        ? { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO }
+        : undefined,
+    );
   }
+}
+
+/** Cognito authorizer backed by a same-stack auth component, if configured. */
+function authorizerFor(
+  scope: Construct,
+  apiId: string,
+  authName: string | undefined,
+  built: ReadonlyMap<string, BuiltComponent>,
+): apigateway.CognitoUserPoolsAuthorizer | undefined {
+  if (!authName) return undefined;
+  const auth = built.get(authName);
+  if (!auth?.userPool) {
+    // The loader validates auth references; reaching this means a programming error.
+    throw new ForgeError(`Cannot attach auth "${authName}": auth component was not built first`);
+  }
+  return new apigateway.CognitoUserPoolsAuthorizer(scope, `${apiId}Authorizer`, {
+    cognitoUserPools: [auth.userPool],
+  });
 }
 
 function createFunction(
@@ -83,7 +109,12 @@ const ATTRIBUTE_TYPES: Record<'string' | 'number' | 'binary', dynamodb.Attribute
   binary: dynamodb.AttributeType.BINARY,
 };
 
-export function buildComponent(scope: Construct, spec: ComponentSpec, ctx: BuildContext): BuiltComponent {
+export function buildComponent(
+  scope: Construct,
+  spec: ComponentSpec,
+  ctx: BuildContext,
+  built: ReadonlyMap<string, BuiltComponent>,
+): BuiltComponent {
   const id = toConstructId(spec.name);
 
   switch (spec.type) {
@@ -114,7 +145,12 @@ export function buildComponent(scope: Construct, spec: ComponentSpec, ctx: Build
         cloudWatchRole: false,
         deployOptions: { stageName: ctx.environment, tracingEnabled: true },
       });
-      addRestRoutes(api, spec.config.routes, new apigateway.LambdaIntegration(fn));
+      addRestRoutes(
+        api,
+        spec.config.routes,
+        new apigateway.LambdaIntegration(fn),
+        authorizerFor(scope, id, spec.config.auth, built),
+      );
       new CfnOutput(scope, `${id}Url`, {
         value: api.url,
         description: `Base URL of the ${spec.name} API`,
@@ -132,6 +168,7 @@ export function buildComponent(scope: Construct, spec: ComponentSpec, ctx: Build
         cloudWatchRole: false,
         deployOptions: { stageName: ctx.environment, tracingEnabled: true },
       });
+      const authorizer = authorizerFor(scope, id, spec.config.auth, built);
       let mounted = 0;
       for (const domain of ctx.model.domains) {
         for (const component of domain.components) {
@@ -142,7 +179,7 @@ export function buildComponent(scope: Construct, spec: ComponentSpec, ctx: Build
           const functionArn = `arn:${Aws.PARTITION}:lambda:${Aws.REGION}:${Aws.ACCOUNT_ID}:function:${resourceNameFor(ctx.model.name, domain.name, component.name, ctx.environment)}`;
           const importId = `${id}${toConstructId(domain.name)}${toConstructId(component.name)}`;
           const target = LambdaFunction.fromFunctionArn(scope, `${importId}Fn`, functionArn);
-          addRestRoutes(api, component.config.routes, new apigateway.LambdaIntegration(target));
+          addRestRoutes(api, component.config.routes, new apigateway.LambdaIntegration(target), authorizer);
           new CfnPermission(scope, `${importId}Permission`, {
             action: 'lambda:InvokeFunction',
             functionName: functionArn,
@@ -264,6 +301,36 @@ export function buildComponent(scope: Construct, spec: ComponentSpec, ctx: Build
         grant: (grantee) => topic.grantPublish(grantee),
         bindingEnv: { [bindingEnvVarFor(spec.type, spec.name)!]: topic.topicArn },
       };
+    }
+
+    case 'auth': {
+      const pool = new cognito.UserPool(scope, `${id}UserPool`, {
+        userPoolName: physicalName(ctx, spec.name, 128),
+        selfSignUpEnabled: spec.config.selfSignUp,
+        signInAliases: { email: true },
+        autoVerify: { email: true },
+        passwordPolicy: {
+          minLength: 12,
+          requireLowercase: true,
+          requireUppercase: true,
+          requireDigits: true,
+        },
+        accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+        removalPolicy: statefulRemovalPolicy(ctx),
+      });
+      const client = pool.addClient(`${id}Client`, {
+        authFlows: { userSrp: true },
+        generateSecret: false,
+      });
+      new CfnOutput(scope, `${id}UserPoolId`, {
+        value: pool.userPoolId,
+        description: `User pool id of ${spec.name} (frontend config)`,
+      });
+      new CfnOutput(scope, `${id}ClientId`, {
+        value: client.userPoolClientId,
+        description: `App client id of ${spec.name} (frontend config)`,
+      });
+      return { spec, resource: pool, userPool: pool };
     }
 
     case 'event-bus': {

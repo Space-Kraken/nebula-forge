@@ -152,9 +152,39 @@ function validateModel(model: WorkspaceModel): void {
     for (const component of domain.components) {
       validateBindings(model, domain, component);
       validateSubscriptions(model, domain, component);
+      validateAuth(domain, component);
     }
   }
   validateApiRoutes(model);
+}
+
+/**
+ * Auth attachments are same-module by design: identity pool ids are not
+ * deterministic, so the authorizer and its API must share a stack.
+ */
+function validateAuth(domain: DomainSpec, component: ComponentSpec): void {
+  if (component.type !== 'gateway' && component.type !== 'http-api') return;
+  const authName = component.config.auth;
+  if (!authName) return;
+
+  if (component.type === 'http-api' && component.config.mount) {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" is mounted on a gateway but declares its own auth`,
+      'A mounted api inherits the gateway\'s authorizer — set auth on the gateway component instead.',
+    );
+  }
+  const target = domain.components.find((candidate) => candidate.name === authName);
+  if (!target) {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" references unknown auth component "${authName}"`,
+      'Auth components live in the SAME module as the API they protect (identity pools are not addressable by deterministic name).',
+    );
+  }
+  if (target.type !== 'auth') {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" references "${authName}" as auth, but it is a ${target.type}`,
+    );
+  }
 }
 
 interface ApiGroupMember {

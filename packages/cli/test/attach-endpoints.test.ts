@@ -44,7 +44,7 @@ describe('http-api scaffolding', () => {
     const model = loadWorkspace(root);
     const api = model.domains[0].components.find((component) => component.name === 'api');
     if (api?.type !== 'http-api') throw new Error('expected http-api');
-    expect(api.config.routes).toEqual([{ method: 'GET', path: '/status' }]);
+    expect(api.config.routes).toEqual([{ method: 'GET', path: '/status', public: true }]);
   });
 });
 

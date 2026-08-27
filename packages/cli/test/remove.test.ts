@@ -116,6 +116,30 @@ describe('gateway mounts', () => {
   });
 });
 
+describe('auth attachments', () => {
+  it('protects and unprotects a gateway, and remove treats auth as referrer', async () => {
+    const { attachAuth, detachAuth } = await import('../src/lib/attach');
+    const root = makeWorkspace();
+    scaffoldComponent(root, 'platform', { name: 'edge', type: 'gateway' });
+    scaffoldComponent(root, 'platform', { name: 'identity', type: 'auth' });
+
+    expect(attachAuth(root, 'platform', 'edge', 'identity')).toBe(true);
+    expect(attachAuth(root, 'platform', 'edge', 'identity')).toBe(false);
+    expect(() => attachAuth(root, 'orders', 'data', 'identity')).toThrow(/auth attaches to gateways/);
+
+    expect(() => removeComponent(root, 'platform', 'identity', { force: false })).toThrow(
+      /still used by: platform\/edge \(auth "identity"\)/,
+    );
+    const detached = removeComponent(root, 'platform', 'identity', { force: true });
+    expect(detached).toEqual([{ domain: 'platform', component: 'edge', ref: 'identity', kind: 'auth' }]);
+
+    scaffoldComponent(root, 'platform', { name: 'identity', type: 'auth' });
+    attachAuth(root, 'platform', 'edge', 'identity');
+    expect(detachAuth(root, 'platform', 'edge')).toBe(true);
+    expect(detachAuth(root, 'platform', 'edge')).toBe(false);
+  });
+});
+
 describe('removeComponent', () => {
   it('refuses while referrers exist and lists them', () => {
     const root = makeWorkspace();
@@ -163,7 +187,7 @@ describe('removeEndpoint', () => {
     const model = loadWorkspace(root);
     const api = model.domains.find((d) => d.name === 'orders')!.components.find((c) => c.name === 'api');
     if (api?.type !== 'http-api') throw new Error('expected http-api');
-    expect(api.config.routes).toEqual([{ method: 'GET', path: '/status' }]);
+    expect(api.config.routes).toEqual([{ method: 'GET', path: '/status', public: true }]);
   });
 
   it('refuses to remove the last endpoint and unknown endpoints', () => {

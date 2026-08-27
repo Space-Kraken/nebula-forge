@@ -1,4 +1,5 @@
 import type { BindingAccess, ComponentSpec } from '@forgecli/core';
+import type { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import type { IEventBus } from 'aws-cdk-lib/aws-events';
 import type { Function as LambdaFunction } from 'aws-cdk-lib/aws-lambda';
 import type { Queue } from 'aws-cdk-lib/aws-sqs';
@@ -14,6 +15,8 @@ export interface BuiltComponent {
   queue?: Queue;
   /** Present for event-bus components (same-stack subscription source). */
   eventBus?: IEventBus;
+  /** Present for auth components (same-stack authorizer source). */
+  userPool?: IUserPool;
   /** Grants a consumer the requested access; present for bindable targets. */
   grant?: (grantee: LambdaFunction, access: BindingAccess) => void;
   /** Environment variables injected into consumers that bind to this component. */

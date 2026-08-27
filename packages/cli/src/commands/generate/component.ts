@@ -24,6 +24,7 @@ const COMPONENT_TYPES: ComponentType[] = [
   'static-site',
   'event-bus',
   'gateway',
+  'auth',
 ];
 
 const SUBSCRIBER_TYPES: ComponentType[] = ['queue-worker', 'function'];
@@ -73,6 +74,9 @@ export default class GenerateComponent extends BaseCommand {
       description: 'handler flavor: ts-fusion (TypeScript on fusion) or ts (plain hexagonal TypeScript)',
       options: ['ts-fusion', 'ts'],
     }),
+    auth: Flags.string({
+      description: 'protect the new gateway/http-api with an auth component from the same module',
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -110,6 +114,12 @@ export default class GenerateComponent extends BaseCommand {
         'Only function, http-api and queue-worker components run code.',
       );
     }
+    if (flags.auth && type !== 'gateway' && type !== 'http-api') {
+      throw new ForgeError(
+        `--auth does not apply to ${type} components`,
+        'Auth protects gateways and http-apis.',
+      );
+    }
     let mount = flags.mount;
 
     if (canPrompt(flags['no-interactive'])) {
@@ -138,6 +148,7 @@ export default class GenerateComponent extends BaseCommand {
     if (subscriptions.length > 0) config.subscriptions = subscriptions;
     if (mount) config.mount = mount;
     if (flags.runtime) config.runtime = flags.runtime;
+    if (flags.auth) config.auth = flags.auth;
 
     const componentDir = scaffoldComponent(model.root, flags.module, {
       name: args.name,

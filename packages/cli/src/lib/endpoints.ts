@@ -28,6 +28,8 @@ export interface EndpointDef {
   name: string;
   method: EndpointMethod;
   route: string;
+  /** Skip the API's authorizer for this endpoint. */
+  public?: boolean;
 }
 
 /**
@@ -164,7 +166,10 @@ export function addEndpoint(root: string, moduleName: string, apiName: string, d
     settings.runtime ??
     engineFor(settings.engine).defaultRuntime) as Runtime;
   writeEndpointFiles(componentDir, def, runtime);
-  manifest.config = { ...(manifest.config ?? {}), routes: [...routes, { method: def.method, path: def.route }] };
+  manifest.config = {
+    ...(manifest.config ?? {}),
+    routes: [...routes, { method: def.method, path: def.route, ...(def.public ? { public: true } : {}) }],
+  };
   writeJson(manifestFile, manifest);
   regenerateControllersBarrel(componentDir);
 

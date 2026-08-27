@@ -141,6 +141,38 @@ export function attachMount(root: string, moduleName: string, componentName: str
   });
 }
 
+/** Protects a gateway or unmounted http-api with a same-module auth component. */
+export function attachAuth(root: string, moduleName: string, componentName: string, authName: string): boolean {
+  const file = componentManifestPath(root, moduleName, componentName);
+  return editManifest(root, file, (manifest) => {
+    if (manifest.type !== 'gateway' && manifest.type !== 'http-api') {
+      throw new ForgeError(
+        `Component "${moduleName}/${componentName}" is a ${manifest.type}; auth attaches to gateways and http-apis`,
+      );
+    }
+    manifest.config = manifest.config ?? {};
+    if (manifest.config.auth === authName) return false;
+    if (manifest.config.auth) {
+      throw new ForgeError(
+        `Component "${moduleName}/${componentName}" is already protected by "${manifest.config.auth}"`,
+        `Detach it first: forge detach ${componentName} --module ${moduleName} --auth`,
+      );
+    }
+    manifest.config.auth = authName;
+    return true;
+  });
+}
+
+/** Removes the authorizer from a gateway/http-api (routes become public). */
+export function detachAuth(root: string, moduleName: string, componentName: string): boolean {
+  const file = componentManifestPath(root, moduleName, componentName);
+  return editManifest(root, file, (manifest) => {
+    if (!manifest.config?.auth) return false;
+    delete manifest.config.auth;
+    return true;
+  });
+}
+
 /** Unmounts an http-api (it goes back to provisioning its own gateway). */
 export function detachMount(root: string, moduleName: string, componentName: string): boolean {
   const file = componentManifestPath(root, moduleName, componentName);

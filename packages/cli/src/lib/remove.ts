@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { COMPONENT_MANIFEST, ForgeError, loadWorkspace, resolveBinding } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
-import { detachBinding, detachMount, detachSubscription } from './attach';
+import { detachAuth, detachBinding, detachMount, detachSubscription } from './attach';
 import { endpointFiles, regenerateControllersBarrel } from './endpoints';
 import { writeJson } from './templates';
 
@@ -11,7 +11,7 @@ export interface Referrer {
   component: string;
   /** The reference exactly as written in the referrer's manifest. */
   ref: string;
-  kind: 'binding' | 'subscription' | 'mount';
+  kind: 'binding' | 'subscription' | 'mount' | 'auth';
 }
 
 /** Every component that binds to or subscribes to module/name. */
@@ -44,6 +44,13 @@ export function findReferrers(model: WorkspaceModel, moduleName: string, compone
         if (resolved?.domain.name === moduleName && resolved.component.name === componentName) {
           referrers.push({ domain: domain.name, component: component.name, ref: component.config.mount, kind: 'mount' });
         }
+      }
+      if (
+        (component.type === 'http-api' || component.type === 'gateway') &&
+        component.config.auth === componentName &&
+        domain.name === moduleName
+      ) {
+        referrers.push({ domain: domain.name, component: component.name, ref: component.config.auth, kind: 'auth' });
       }
     }
   }
@@ -81,7 +88,8 @@ export function removeComponent(
   for (const referrer of referrers) {
     if (referrer.kind === 'binding') detachBinding(root, referrer.domain, referrer.component, referrer.ref);
     else if (referrer.kind === 'subscription') detachSubscription(root, referrer.domain, referrer.component, referrer.ref);
-    else detachMount(root, referrer.domain, referrer.component);
+    else if (referrer.kind === 'mount') detachMount(root, referrer.domain, referrer.component);
+    else detachAuth(root, referrer.domain, referrer.component);
   }
 
   fs.rmSync(component.path, { recursive: true, force: true });

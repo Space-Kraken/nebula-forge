@@ -366,6 +366,47 @@ describe('loadWorkspace', () => {
     expect(() => loadWorkspace(root)).toThrow(/sibling path variables/);
   });
 
+  it('validates auth attachments: same module, auth type, not on mounted apis', () => {
+    const base = {
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/identity/component.json': { name: 'identity', type: 'auth' },
+      'domains/platform/components/edge/component.json': {
+        name: 'edge',
+        type: 'gateway',
+        config: { auth: 'identity' },
+      },
+    };
+    expect(() => loadWorkspace(makeWorkspace(base))).not.toThrow();
+
+    expect(() =>
+      loadWorkspace(
+        makeWorkspace({
+          ...base,
+          'domains/platform/components/edge/component.json': {
+            name: 'edge',
+            type: 'gateway',
+            config: { auth: 'missing' },
+          },
+        }),
+      ),
+    ).toThrow(/unknown auth component "missing"/);
+
+    expect(() =>
+      loadWorkspace(
+        makeWorkspace({
+          ...base,
+          'domains/users/domain.json': { name: 'users' },
+          'domains/users/components/api/component.json': {
+            name: 'api',
+            type: 'http-api',
+            config: { mount: 'platform/edge', auth: 'identity', routes: [{ method: 'GET', path: '/users' }] },
+          },
+        }),
+      ),
+    ).toThrow(/mounted on a gateway but declares its own auth/);
+  });
+
   it('fails with a helpful error outside a workspace', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-core-empty-'));
     createdDirs.push(root);
