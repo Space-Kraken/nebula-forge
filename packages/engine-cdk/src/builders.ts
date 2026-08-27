@@ -12,6 +12,7 @@ import { Architecture, CfnPermission, Function as LambdaFunction, Runtime, Traci
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { EmailIdentity, Identity } from 'aws-cdk-lib/aws-ses';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
@@ -331,6 +332,33 @@ export function buildComponent(
         description: `App client id of ${spec.name} (frontend config)`,
       });
       return { spec, resource: pool, userPool: pool };
+    }
+
+    case 'email': {
+      const isAddress = spec.config.identity.includes('@');
+      const identity = new EmailIdentity(scope, `${id}Identity`, {
+        identity: isAddress ? Identity.email(spec.config.identity) : Identity.domain(spec.config.identity),
+      });
+      if (isAddress) {
+        new CfnOutput(scope, `${id}Verification`, {
+          value: `SES sent a verification email to ${spec.config.identity} — confirm it before sending`,
+          description: `Verification status hint for ${spec.name}`,
+        });
+      } else {
+        // Domain identities verify through DNS: publish these DKIM CNAMEs.
+        identity.dkimRecords.forEach((record, index) => {
+          new CfnOutput(scope, `${id}Dkim${index + 1}`, {
+            value: `${record.name} CNAME ${record.value}`,
+            description: `DKIM record ${index + 1} for ${spec.config.identity}`,
+          });
+        });
+      }
+      return {
+        spec,
+        resource: identity,
+        grant: (grantee) => identity.grantSendEmail(grantee),
+        bindingEnv: { [bindingEnvVarFor(spec.type, spec.name)!]: spec.config.identity },
+      };
     }
 
     case 'event-bus': {

@@ -122,7 +122,7 @@ function bootstrapAzure(model: WorkspaceModel, environment: string, log: (messag
 export const azureTerraformEngine: EngineAdapter = {
   id: 'azure-terraform',
   enginePackage: 'engine-azure-tf',
-  unsupportedTypes: ['http-api', 'static-site', 'gateway', 'auth'],
+  unsupportedTypes: ['http-api', 'static-site', 'gateway', 'auth', 'email'],
   workspaceFiles: [
     { template: 'engines/azure-terraform/forge.json.tpl', target: 'forge.json' },
     { template: 'engines/azure-terraform/package.json.tpl', target: 'package.json' },

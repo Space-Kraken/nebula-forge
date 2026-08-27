@@ -277,6 +277,50 @@ describe('event-driven wiring', () => {
   });
 });
 
+describe('email identities', () => {
+  it('provisions the SES identity and grants send to bound functions', () => {
+    const model: WorkspaceModel = {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: { dev: { region: 'us-east-1' } },
+      root: fixturesDir,
+      domains: [
+        {
+          name: 'billing',
+          path: fixturesDir,
+          components: [
+            component({ name: 'notifications', type: 'email', config: { identity: 'no-reply@app.com' } }),
+            component({
+              name: 'mailer',
+              type: 'function',
+              config: { entry: 'handler.ts' },
+              bindings: [{ component: 'notifications', access: 'send' }],
+            }),
+          ],
+        },
+      ],
+    };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('billing')!);
+
+    template.hasResourceProperties('AWS::SES::EmailIdentity', { EmailIdentity: 'no-reply@app.com' });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({ Action: Match.arrayWith(['ses:SendEmail']) }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties(
+      'AWS::Lambda::Function',
+      Match.objectLike({
+        Environment: { Variables: Match.objectLike({ EMAIL_NOTIFICATIONS_FROM: 'no-reply@app.com' }) },
+      }),
+    );
+  });
+});
+
 describe('shared gateway', () => {
   function gatewayModel(): WorkspaceModel {
     return {

@@ -34,7 +34,7 @@ checkout, workspaces `--link` y ciclo de pruebas.
 |---|---|---|
 | **Workspace** | El proyecto (`forge.json`: motor + entornos) | — |
 | **Módulo (dominio)** | Un dominio de negocio, aislado y desplegable | 1 stack de CloudFormation por entorno |
-| **Componente** | Una pieza de arquitectura dentro del módulo | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus`, `gateway`, `auth` |
+| **Componente** | Una pieza de arquitectura dentro del módulo | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus`, `gateway`, `auth`, `email` |
 | **Binding** | Dependencia declarada entre componentes | IAM de mínimo privilegio + env vars de descubrimiento (`TABLE_X_NAME`, `QUEUE_X_URL`) |
 | **Blueprint** | Arquitectura de referencia completa | `serverless-api`, `queue-processing`, `scheduled-tasks`, `web-app`, `event-driven` |
 

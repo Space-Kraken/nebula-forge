@@ -63,7 +63,7 @@ export const domainManifestSchema = z
   })
   .strict();
 
-export const bindingAccessSchema = z.enum(['read', 'write', 'read-write', 'publish']);
+export const bindingAccessSchema = z.enum(['read', 'write', 'read-write', 'publish', 'send']);
 
 /** A component reference: "name" within the domain, or "domain/name" across domains. */
 const COMPONENT_REF_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\/[a-z][a-z0-9]*(?:-[a-z0-9]+)*)?$/;
@@ -217,6 +217,21 @@ export const gatewayConfigSchema = z
   })
   .strict();
 
+const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_DOMAIN_PATTERN = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i;
+
+/** Outbound email (AWS: SES identity). */
+export const emailConfigSchema = z
+  .object({
+    /** Verified sender: an address ("no-reply@app.com") or a whole domain ("app.com"). */
+    identity: z
+      .string()
+      .refine((value) => EMAIL_ADDRESS_PATTERN.test(value) || EMAIL_DOMAIN_PATTERN.test(value), {
+        message: 'must be an email address (no-reply@app.com) or a domain (app.com)',
+      }),
+  })
+  .strict();
+
 /** Identity provider (AWS: Cognito User Pool + client). */
 export const authConfigSchema = z
   .object({
@@ -242,4 +257,5 @@ export const componentManifestSchema = z.discriminatedUnion('type', [
   z.object({ ...componentBase, type: z.literal('event-bus'), config: eventBusConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('gateway'), config: gatewayConfigSchema.default({}) }).strict(),
   z.object({ ...componentBase, type: z.literal('auth'), config: authConfigSchema.default({}) }).strict(),
+  z.object({ ...componentBase, type: z.literal('email'), config: emailConfigSchema }).strict(),
 ]);

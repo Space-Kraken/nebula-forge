@@ -47,6 +47,7 @@ const BINDING_ENV_FORMATS: Record<string, { prefix: string; suffix: string }> = 
   'queue-worker': { prefix: 'QUEUE', suffix: 'URL' },
   topic: { prefix: 'TOPIC', suffix: 'ARN' },
   'event-bus': { prefix: 'BUS', suffix: 'NAME' },
+  email: { prefix: 'EMAIL', suffix: 'FROM' },
 };
 
 /** Env var injected when binding to targetName, or undefined for non-bindable types. */

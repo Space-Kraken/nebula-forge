@@ -43,6 +43,7 @@ export const BINDABLE_ACCESS: Partial<Record<ComponentType, readonly BindingAcce
   'queue-worker': ['publish'],
   topic: ['publish'],
   'event-bus': ['publish'],
+  email: ['send'],
 };
 
 /**

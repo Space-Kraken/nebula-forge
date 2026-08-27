@@ -407,6 +407,57 @@ describe('loadWorkspace', () => {
     ).toThrow(/mounted on a gateway but declares its own auth/);
   });
 
+  it('validates email components and their send bindings', () => {
+    const valid = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/billing/domain.json': { name: 'billing' },
+      'domains/billing/components/notifications/component.json': {
+        name: 'notifications',
+        type: 'email',
+        config: { identity: 'no-reply@app.com' },
+      },
+      'domains/billing/components/mailer/component.json': {
+        name: 'mailer',
+        type: 'function',
+        bindings: [{ component: 'notifications', access: 'send' }],
+      },
+    });
+    expect(() => loadWorkspace(valid)).not.toThrow();
+
+    expect(() =>
+      loadWorkspace(
+        makeWorkspace({
+          'forge.json': baseManifest,
+          'domains/billing/domain.json': { name: 'billing' },
+          'domains/billing/components/notifications/component.json': {
+            name: 'notifications',
+            type: 'email',
+            config: { identity: 'not-an-identity' },
+          },
+        }),
+      ),
+    ).toThrow(/must be an email address/);
+
+    expect(() =>
+      loadWorkspace(
+        makeWorkspace({
+          'forge.json': baseManifest,
+          'domains/billing/domain.json': { name: 'billing' },
+          'domains/billing/components/notifications/component.json': {
+            name: 'notifications',
+            type: 'email',
+            config: { identity: 'app.com' },
+          },
+          'domains/billing/components/mailer/component.json': {
+            name: 'mailer',
+            type: 'function',
+            bindings: [{ component: 'notifications', access: 'read' }],
+          },
+        }),
+      ),
+    ).toThrow(/does not support "read" bindings \(allowed: send\)/);
+  });
+
   it('fails with a helpful error outside a workspace', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-core-empty-'));
     createdDirs.push(root);

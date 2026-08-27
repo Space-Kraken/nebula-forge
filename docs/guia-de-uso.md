@@ -80,6 +80,7 @@ Tipos de componente y a qué se traducen:
 | `event-bus` | EventBridge | Event Grid topic |
 | `gateway` | API Gateway REST compartido (ver §9) | *(fase 1b — APIM/Front Door)* |
 | `auth` | Cognito User Pool + client (ver §9) | *(fase 1b — Entra External ID)* |
+| `email` | Identidad SES (dirección o dominio) | *(fase 1b — Communication Services)* |
 | `static-site` | S3 + CloudFront (+WAF) | *(fase 1b — Front Door)* |
 
 ### Runtimes: fusion es opcional
@@ -132,7 +133,12 @@ forge attach api --module users --bind data:read-write
 ```
 
 Accesos: `read`, `write`, `read-write` (tablas/buckets) · `publish`
-(colas/topics/buses).
+(colas/topics/buses) · `send` (email — otorga `ses:SendEmail` mínimo e
+inyecta `EMAIL_<NOMBRE>_FROM` con la identidad remitente).
+
+Para `email`: `--identity no-reply@app.com` (o un dominio — los CNAMEs DKIM
+salen como outputs del deploy). Ojo: SES arranca en *sandbox* (solo envía a
+direcciones verificadas) hasta pedir production access en la consola.
 
 **Eventos** (entre dominios): la ÚNICA forma de cruzar dominios es un
 `event-bus`, referenciado como `dominio/bus`:

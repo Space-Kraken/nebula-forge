@@ -20,6 +20,7 @@ const TYPE_BADGES: Record<string, string> = {
   'event-bus': '🚌',
   gateway: '🚪',
   auth: '🔐',
+  email: '✉️',
 };
 
 interface NodeShape {
@@ -41,6 +42,7 @@ const TYPE_SHAPES: Record<string, NodeShape> = {
   'event-bus': { open: '((', close: '))' },
   gateway: { open: '[\\', close: '\\]' },
   auth: { open: '([', close: '])' },
+  email: { open: '>', close: ']' },
 };
 
 /** Mermaid edge labels go inside |"…"|; keep quotes out of the raw text. */

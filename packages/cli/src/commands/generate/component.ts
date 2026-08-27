@@ -11,7 +11,7 @@ import { BaseCommand } from '../../lib/base';
 import { attachBinding, parseAttaches, parseSubscribes } from '../../lib/attach';
 import { promptBusSubscription, promptOutboundBindings } from '../../lib/coupling-prompts';
 import { writeArchitectureDocs } from '../../lib/docs';
-import { canPrompt, promptCheckbox, promptSelect } from '../../lib/interactive';
+import { canPrompt, promptCheckbox, promptInput, promptSelect } from '../../lib/interactive';
 import { parseBindings, scaffoldComponent } from '../../lib/scaffold';
 
 const COMPONENT_TYPES: ComponentType[] = [
@@ -25,6 +25,7 @@ const COMPONENT_TYPES: ComponentType[] = [
   'event-bus',
   'gateway',
   'auth',
+  'email',
 ];
 
 const SUBSCRIBER_TYPES: ComponentType[] = ['queue-worker', 'function'];
@@ -77,6 +78,9 @@ export default class GenerateComponent extends BaseCommand {
     auth: Flags.string({
       description: 'protect the new gateway/http-api with an auth component from the same module',
     }),
+    identity: Flags.string({
+      description: 'verified sender for email components: an address (no-reply@app.com) or a domain (app.com)',
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
@@ -122,6 +126,17 @@ export default class GenerateComponent extends BaseCommand {
     }
     let mount = flags.mount;
 
+    let identity = flags.identity;
+    if (type === 'email' && !identity) {
+      if (!canPrompt(flags['no-interactive'])) {
+        throw new ForgeError(
+          'Email components need a sender identity',
+          'Pass --identity no-reply@your-app.com (or a whole domain like your-app.com).',
+        );
+      }
+      identity = (await promptInput('Sender identity (address or domain):')).trim();
+    }
+
     if (canPrompt(flags['no-interactive'])) {
       if (type === 'http-api' && !mount) {
         mount = await this.promptMount(model, domain, args.name);
@@ -149,6 +164,7 @@ export default class GenerateComponent extends BaseCommand {
     if (mount) config.mount = mount;
     if (flags.runtime) config.runtime = flags.runtime;
     if (flags.auth) config.auth = flags.auth;
+    if (type === 'email' && identity) config.identity = identity;
 
     const componentDir = scaffoldComponent(model.root, flags.module, {
       name: args.name,
