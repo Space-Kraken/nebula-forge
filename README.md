@@ -167,7 +167,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 
 | Comando | Descripción |
 |---|---|
-| `forge new <nombre> [--blueprint <id>] [--engine aws-cdk\|azure-terraform]` | Crea un workspace |
+| `forge new <nombre> [--blueprint <id>] [--engine …] [--profile <aws>\|--subscription <az>]` | Crea un workspace; pregunta credenciales en terminal (vacío = default) |
 | `forge blueprints` | Lista las arquitecturas de referencia |
 | `forge generate module <nombre>` | Nuevo dominio (stack independiente) |
 | `forge generate component <n> -m <mod> -t <tipo>` | Nuevo componente; en terminal **infiere los acoples y pregunta** (a quién se conecta, quién lo usa, a qué bus se suscribe). Flags para CI: `--bind`, `--attach`, `--subscribe`, `--no-interactive` |

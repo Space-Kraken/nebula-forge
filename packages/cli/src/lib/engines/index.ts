@@ -31,6 +31,13 @@ export interface EngineAdapter {
   workspaceFiles: EngineWorkspaceFile[];
   /** Template for the per-module infrastructure test. */
   moduleTestTemplate: string;
+  /** How this engine identifies deploy credentials at workspace setup. */
+  credentials: {
+    /** forge new flag name ("profile" for AWS, "subscription" for Azure). */
+    flag: 'profile' | 'subscription';
+    promptMessage: string;
+    write(root: string, value: string): void;
+  };
   /** Handler runtimes this engine can scaffold, and which one applies when nothing chooses. */
   runtimes: Runtime[];
   defaultRuntime: Runtime;

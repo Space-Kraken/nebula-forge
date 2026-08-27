@@ -43,11 +43,18 @@ dominios publican y se suscriben a él por nombre, sin acoplarse entre sí.
 ## 2. Crear un proyecto
 
 ```bash
-forge new mi-app                          # interactivo: pregunta blueprint
+forge new mi-app                          # interactivo: pregunta perfil AWS y blueprint
 forge new mi-app --blueprint event-driven # o directo desde una arquitectura de referencia
-forge new mi-app --engine azure-terraform # Azure en vez de AWS (default: aws-cdk)
+forge new mi-app --profile mi-empresa     # perfil AWS del toolchain (vacío = default)
+forge new mi-app --engine azure-terraform --subscription <id>  # Azure (vacío = az account actual)
 cd mi-app                                 # deps ya instaladas (pnpm)
 ```
+
+Las credenciales quedan en `forge.json` por **entorno**
+(`environments.<env>.profile` en AWS, `.account` = subscription en Azure), así
+dev y prod pueden usar cuentas distintas — el setup inicial las aplica a
+todos y las afinas ahí. `deploy/diff/bootstrap` las honran automáticamente
+(`AWS_PROFILE` / `az --subscription` / `subscription_id` de terraform).
 
 Blueprints disponibles (`forge blueprints`): `serverless-api`,
 `queue-processing`, `scheduled-tasks`, `web-app`, `event-driven`.

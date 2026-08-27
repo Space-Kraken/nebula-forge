@@ -202,6 +202,25 @@ describe('runtime ts (plain hexagonal, no fusion)', () => {
   });
 });
 
+describe('writeCredentialSetting', () => {
+  it('applies the aws profile to every environment', async () => {
+    const { writeCredentialSetting } = await import('../src/lib/state');
+    const root = makeWorkspace();
+    writeCredentialSetting(root, 'profile', 'mi-empresa-dev');
+    const model = loadWorkspace(root);
+    expect(model.environments.dev.profile).toBe('mi-empresa-dev');
+    expect(model.environments.prod.profile).toBe('mi-empresa-dev');
+  });
+
+  it('applies the azure subscription as the account field', async () => {
+    const { writeCredentialSetting } = await import('../src/lib/state');
+    const root = makeWorkspace();
+    writeCredentialSetting(root, 'account', '00000000-1111-2222-3333-444444444444');
+    const model = loadWorkspace(root);
+    expect(model.environments.dev.account).toBe('00000000-1111-2222-3333-444444444444');
+  });
+});
+
 describe('writeEnvironmentState', () => {
   it('persists the backend into forge.json and validates', async () => {
     const { writeEnvironmentState } = await import('../src/lib/state');

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { ForgeError } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
 import { commandAvailable, runInWorkspace } from '../proc';
-import { writeEnvironmentState } from '../state';
+import { writeCredentialSetting, writeEnvironmentState } from '../state';
 import type { StateConfig } from '../state';
 import type { EngineAdapter } from './index';
 
@@ -56,8 +56,16 @@ function stateStorageAccountName(appName: string, environment: string): string {
   return `${base}${hash}`.slice(0, 24);
 }
 
-function az(model: WorkspaceModel, args: string[]): number {
-  return runInWorkspace(model.root, 'az', [...args, '-o', 'none']);
+function az(model: WorkspaceModel, environment: string, args: string[]): number {
+  // Honor the environment's subscription (environments.<env>.account) so a
+  // multi-subscription az login still targets the right one.
+  const account = model.environments[environment]?.account;
+  return runInWorkspace(model.root, 'az', [
+    ...args,
+    ...(account ? ['--subscription', account] : []),
+    '-o',
+    'none',
+  ]);
 }
 
 function bootstrapAzure(model: WorkspaceModel, environment: string, log: (message: string) => void): number {
@@ -91,7 +99,7 @@ function bootstrapAzure(model: WorkspaceModel, environment: string, log: (messag
     ['storage', 'container', 'create', '--name', state.container, '--account-name', state.storageAccount],
   ];
   for (const step of steps) {
-    const code = az(model, step);
+    const code = az(model, environment, step);
     if (code !== 0) return code;
   }
 
@@ -131,6 +139,11 @@ export const azureTerraformEngine: EngineAdapter = {
   ],
   moduleTestTemplate: 'engines/azure-terraform/infra.test.ts.tpl',
   bootstrap: bootstrapAzure,
+  credentials: {
+    flag: 'subscription',
+    promptMessage: 'Azure subscription id (empty = current az account):',
+    write: (root, value) => writeCredentialSetting(root, 'account', value),
+  },
   // Azure templates are plain hexagonal; fusion-azure will add 'ts-fusion'.
   runtimes: ['ts'],
   defaultRuntime: 'ts',

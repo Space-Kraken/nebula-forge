@@ -13,6 +13,8 @@ export const environmentSchema = z
   .object({
     account: z.string().optional(),
     region: z.string(),
+    /** AWS named profile used by the toolchain for this environment (aws-cdk only). */
+    profile: z.string().optional(),
     /** Marks the environment as production (stateful resources are retained on delete). Defaults to name === "prod". */
     production: z.boolean().optional(),
     /**

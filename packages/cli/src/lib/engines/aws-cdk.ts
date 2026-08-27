@@ -1,10 +1,17 @@
 import { stackNameFor } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
 import { runInWorkspace } from '../proc';
+import { writeCredentialSetting } from '../state';
 import type { EngineAdapter } from './index';
 
+/** The environment's named profile, exported so cdk and the SDK pick it up. */
+function profileEnv(model: WorkspaceModel, environment: string): Record<string, string> {
+  const profile = model.environments[environment]?.profile;
+  return profile ? { AWS_PROFILE: profile } : {};
+}
+
 function runCdk(model: WorkspaceModel, environment: string, args: string[]): number {
-  return runInWorkspace(model.root, 'npx', ['cdk', ...args], environment);
+  return runInWorkspace(model.root, 'npx', ['cdk', ...args], environment, profileEnv(model, environment));
 }
 
 function stackNames(model: WorkspaceModel, environment: string, domains: string[]): string[] {
@@ -31,7 +38,13 @@ export const awsCdkEngine: EngineAdapter = {
     log(`Bootstrapping AWS environment "${environment}" (region ${envSpec.region}) via cdk bootstrap…`);
     return runInWorkspace(model.root, 'npx', ['cdk', 'bootstrap', ...target], environment, {
       CDK_DEFAULT_REGION: envSpec.region,
+      ...profileEnv(model, environment),
     });
+  },
+  credentials: {
+    flag: 'profile',
+    promptMessage: 'AWS profile for deployments (empty = default credentials):',
+    write: (root, value) => writeCredentialSetting(root, 'profile', value),
   },
   runtimes: ['ts-fusion', 'ts'],
   defaultRuntime: 'ts-fusion',
