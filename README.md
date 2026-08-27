@@ -15,6 +15,8 @@ forge deploy payments --env dev
 
 📖 **[Guía de uso](docs/guia-de-uso.md)** — el modelo mental (workspace →
 módulos → componentes → acoples), el flujo completo y las convenciones.
+🔧 **[Desarrollo local](docs/desarrollo-local.md)** — correr forge desde el
+checkout, workspaces `--link` y ciclo de pruebas.
 
 ## Por qué existe
 

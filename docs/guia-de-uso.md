@@ -36,6 +36,9 @@ dominios publican y se suscriben a él por nombre, sin acoplarse entre sí.
 > ❌ `forge generate module shared` con "el API base" de todos
 > ✔️ `forge generate module platform` con el `event-bus` compartido
 > ✔️ un `http-api` llamado `api` **dentro de cada dominio** que exponga rutas
+>
+> ¿Y un API *general* con dominios colgados por path? Ese caso llega con el
+> tipo `gateway` — ver §9 (en camino).
 
 ## 2. Crear un proyecto
 
@@ -178,3 +181,38 @@ Requisitos por motor:
 | `Terraform CLI not found` | Falta el binario (Azure) | Instálalo; forge lo maneja desde ahí |
 | `no prompts en CI` | Diseñado así (sin TTY no pregunta) | Usa los flags `--bind/--attach/--subscribe` |
 | Error con pista `↳` | Todo error de forge trae su cómo-arreglarlo | Léela: es la solución |
+
+## 9. 🚧 Gateway compartido: un API para N dominios *(diseño acordado, en camino)*
+
+En muchos proyectos el API es **uno solo** (una URL, un dominio custom) y los
+dominios cuelgan de él por path. Para eso llega el tipo `gateway` — la
+recepción del edificio: una sola dirección, el guardia (authorizer) y el
+directorio de pisos. **Ahí no trabaja nadie**; quien atiende es el `http-api`
+de cada dominio.
+
+| | `gateway` | `http-api` |
+|---|---|---|
+| Qué es | Solo el borde: API Gateway compartido | La Lambda del dominio + sus endpoints |
+| Código tuyo | ❌ nunca | ✔️ controllers, use cases, tests |
+| `generate endpoint` | ❌ | ✔️ siempre aquí |
+| Dueño de la URL | ✔️ (y futuro: custom domain, authorizer) | Solo si NO está montado |
+| Se redespliega cuando… | cambia la *topología* de rutas | cambia tu *código* |
+
+```bash
+# la recepción, una vez, en platform:
+forge generate component gateway --module platform --type gateway
+# la oficina de users, montada en la recepción (sin puerta propia):
+forge generate component api --module users --type http-api --mount platform/gateway
+# los endpoints van SIEMPRE al http-api:
+forge generate endpoint get-user --module users --method GET --route /users/{id}
+```
+
+Sin `--mount`, el `http-api` se comporta como hoy (su propio API Gateway).
+Con él, el gateway materializa la unión de rutas de todos los montados
+integrando cada Lambda por nombre determinístico — sin exports entre stacks,
+mismo truco que el event-bus. Flexibilidad total: 1 API para N dominios, N
+APIs, o mixto. Trade-off asumido: cambiar rutas redespliega también el módulo
+del gateway (los deploys de *código* siguen 100% independientes).
+
+Regla mnemotécnica: **si tiene endpoints es `http-api`; si tiene la URL es
+`gateway`.**
