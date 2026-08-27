@@ -13,6 +13,9 @@ forge test payments
 forge deploy payments --env dev
 ```
 
+📖 **[Guía de uso](docs/guia-de-uso.md)** — el modelo mental (workspace →
+módulos → componentes → acoples), el flujo completo y las convenciones.
+
 ## Por qué existe
 
 - No todos los integrantes de un equipo dominan arquitectura AWS: backends
