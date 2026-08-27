@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ForgeError } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
-import { runInWorkspace } from '../proc';
+import { commandAvailable, runInWorkspace } from '../proc';
+import { writeEnvironmentState } from '../state';
+import type { StateConfig } from '../state';
 import type { EngineAdapter } from './index';
 
 function ensureTerraform(): void {
@@ -46,6 +49,76 @@ function perDomain(
   return 0;
 }
 
+/** Deterministic name for the tfstate storage account (3-24 chars, lowercase alnum, globally unique). */
+function stateStorageAccountName(appName: string, environment: string): string {
+  const hash = createHash('sha256').update(`${appName}|tfstate|${environment}`).digest('hex').slice(0, 10);
+  const base = `st${`${appName}${environment}`.replace(/[^a-z0-9]/g, '')}`.slice(0, 14);
+  return `${base}${hash}`.slice(0, 24);
+}
+
+function az(model: WorkspaceModel, args: string[]): number {
+  return runInWorkspace(model.root, 'az', [...args, '-o', 'none']);
+}
+
+function bootstrapAzure(model: WorkspaceModel, environment: string, log: (message: string) => void): number {
+  ensureTerraform();
+  if (!commandAvailable('az', ['account', 'show'])) {
+    throw new ForgeError(
+      'Azure CLI not available or not logged in',
+      'Install it (https://learn.microsoft.com/cli/azure/install-azure-cli) and run `az login` first.',
+    );
+  }
+  const envSpec = model.environments[environment];
+  const state: StateConfig = envSpec.state ?? {
+    resourceGroup: `rg-${model.name}-tfstate-${environment}`,
+    storageAccount: stateStorageAccountName(model.name, environment),
+    container: 'tfstate',
+  };
+
+  log(`Ensuring remote state backend (${state.resourceGroup}/${state.storageAccount}/${state.container})…`);
+  const steps: string[][] = [
+    ['group', 'create', '--name', state.resourceGroup, '--location', envSpec.region],
+    [
+      'storage', 'account', 'create',
+      '--name', state.storageAccount,
+      '--resource-group', state.resourceGroup,
+      '--location', envSpec.region,
+      '--sku', 'Standard_LRS',
+      '--kind', 'StorageV2',
+      '--min-tls-version', 'TLS1_2',
+      '--allow-blob-public-access', 'false',
+    ],
+    ['storage', 'container', 'create', '--name', state.container, '--account-name', state.storageAccount],
+  ];
+  for (const step of steps) {
+    const code = az(model, step);
+    if (code !== 0) return code;
+  }
+
+  if (!envSpec.state) {
+    writeEnvironmentState(model.root, environment, state);
+    log('✔ Recorded the backend in forge.json (environments.' + environment + '.state)');
+  }
+
+  log('Re-synthesizing with the remote backend…');
+  const synthCode = synthesize(model, environment);
+  if (synthCode !== 0) return synthCode;
+
+  for (const domain of model.domains) {
+    log(`Migrating state of "${domain.name}"…`);
+    const migrate = terraform(model, environment, domain.name, [
+      'init', '-input=false', '-migrate-state', '-force-copy',
+    ]);
+    if (migrate !== 0) {
+      // Fresh module (nothing to migrate): plain re-init against the new backend.
+      const reinit = terraform(model, environment, domain.name, ['init', '-input=false', '-reconfigure']);
+      if (reinit !== 0) return reinit;
+    }
+  }
+  log('✔ Bootstrap complete — state is shared; teammates can deploy after az login.');
+  return 0;
+}
+
 export const azureTerraformEngine: EngineAdapter = {
   id: 'azure-terraform',
   enginePackage: 'engine-azure-tf',
@@ -57,6 +130,7 @@ export const azureTerraformEngine: EngineAdapter = {
     { template: 'engines/azure-terraform/infra/azure.ts', target: 'infra/azure.ts' },
   ],
   moduleTestTemplate: 'engines/azure-terraform/infra.test.ts.tpl',
+  bootstrap: bootstrapAzure,
   componentFiles: {
     function: [
       { template: 'engines/azure-terraform/component/function/handler.ts.tpl', target: () => 'src/handler.ts' },

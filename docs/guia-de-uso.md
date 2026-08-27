@@ -153,11 +153,13 @@ forge deploy users --env dev  # despliega SOLO ese dominio
 forge deploy --all --env dev  # todo, solo si lo pides explícito
 ```
 
-Requisitos por motor:
-- **aws-cdk**: credenciales AWS + `cdk bootstrap` una vez por cuenta/región.
-- **azure-terraform**: binario `terraform` + `az login`. El estado es local
-  (`.tfstate/`) por ahora; backend remoto para equipos llega con
-  `forge bootstrap` (fase 1b).
+Requisitos por motor (una vez por entorno, con `forge bootstrap`):
+- **aws-cdk**: credenciales AWS y `forge bootstrap` (envuelve `cdk bootstrap`).
+- **azure-terraform**: binario `terraform` + `az login`, y `forge bootstrap`:
+  crea el backend de estado compartido (storage account determinístico), lo
+  registra en `forge.json` y migra el estado local de cada dominio. Sin
+  bootstrap el estado es local (`.tfstate/`) — suficiente para probar solo,
+  no para trabajar en equipo. Es idempotente: repetirlo no rompe nada.
 
 ## 7. Convenciones que te ahorran problemas
 

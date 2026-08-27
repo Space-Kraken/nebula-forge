@@ -74,12 +74,23 @@ export function synthesizeDomain(
     terraform: {
       required_version: '>= 1.5.0',
       required_providers: { azurerm: { source: 'hashicorp/azurerm', version: '~> 4.0' } },
-      backend: {
-        // Module dir is .forge/azure/<env>/<domain>/ — state lives at the
-        // workspace root so a synth never wipes it. Teams should switch to a
-        // remote backend before sharing state (forge bootstrap, phase 1b).
-        local: { path: `../../../../.tfstate/${stackNameFor(model.name, domain.name, environment)}.tfstate` },
-      },
+      backend: envSpec.state
+        ? {
+            // Remote state provisioned by `forge bootstrap` — one blob per
+            // domain, so domains keep deploying independently.
+            azurerm: {
+              resource_group_name: envSpec.state.resourceGroup,
+              storage_account_name: envSpec.state.storageAccount,
+              container_name: envSpec.state.container,
+              key: `${stackNameFor(model.name, domain.name, environment)}.tfstate`,
+            },
+          }
+        : {
+            // Module dir is .forge/azure/<env>/<domain>/ — local state lives at
+            // the workspace root so a synth never wipes it. Run `forge
+            // bootstrap` to move it to a shared remote backend.
+            local: { path: `../../../../.tfstate/${stackNameFor(model.name, domain.name, environment)}.tfstate` },
+          },
     },
     provider: {
       azurerm: {

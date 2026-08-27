@@ -147,6 +147,24 @@ describe('synthesizeDomain', () => {
     expect(backend).toBe('../../../../.tfstate/shop-orders-dev.tfstate');
   });
 
+  it('switches to the azurerm backend once forge bootstrap recorded it', () => {
+    const model = makeModel();
+    model.environments.dev.state = {
+      resourceGroup: 'rg-shop-tfstate-dev',
+      storageAccount: 'stshopdev0123456789ab',
+      container: 'tfstate',
+    };
+    const bootstrapped = synthesizeDomain(model, 'orders', 'dev');
+    expect((bootstrapped.terraform as any).backend).toEqual({
+      azurerm: {
+        resource_group_name: 'rg-shop-tfstate-dev',
+        storage_account_name: 'stshopdev0123456789ab',
+        container_name: 'tfstate',
+        key: 'shop-orders-dev.tfstate',
+      },
+    });
+  });
+
   it('rejects component types that are not supported yet, with guidance', () => {
     const model = makeModel();
     model.domains[1].components.push(component({ name: 'api', type: 'http-api' }));

@@ -35,6 +35,8 @@ export interface EngineAdapter {
   componentFiles: Partial<Record<ComponentType, EngineComponentFile[]>>;
   synth(model: WorkspaceModel, environment: string, domains: string[]): number;
   diff(model: WorkspaceModel, environment: string, domains: string[]): number;
+  /** Prepares the account/environment: deploy prerequisites and state management. */
+  bootstrap(model: WorkspaceModel, environment: string, log: (message: string) => void): number;
   deploy(
     model: WorkspaceModel,
     environment: string,

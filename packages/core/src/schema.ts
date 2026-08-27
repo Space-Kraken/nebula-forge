@@ -15,6 +15,18 @@ export const environmentSchema = z
     region: z.string(),
     /** Marks the environment as production (stateful resources are retained on delete). Defaults to name === "prod". */
     production: z.boolean().optional(),
+    /**
+     * Remote state backend, written by `forge bootstrap` (azure-terraform
+     * engine; aws-cdk keeps state in CloudFormation and ignores it).
+     */
+    state: z
+      .object({
+        resourceGroup: z.string(),
+        storageAccount: z.string(),
+        container: z.string(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

@@ -150,6 +150,26 @@ describe('attachBinding', () => {
   });
 });
 
+describe('writeEnvironmentState', () => {
+  it('persists the backend into forge.json and validates', async () => {
+    const { writeEnvironmentState } = await import('../src/lib/state');
+    const root = makeWorkspace();
+    writeEnvironmentState(root, 'dev', {
+      resourceGroup: 'rg-shop-tfstate-dev',
+      storageAccount: 'stshopdevabc123',
+      container: 'tfstate',
+    });
+    const model = loadWorkspace(root);
+    expect(model.environments.dev.state).toEqual({
+      resourceGroup: 'rg-shop-tfstate-dev',
+      storageAccount: 'stshopdevabc123',
+      container: 'tfstate',
+    });
+    // untouched environments keep no state
+    expect(model.environments.prod.state).toBeUndefined();
+  });
+});
+
 describe('flag parsers', () => {
   it('parses --attach and --subscribe values', () => {
     expect(parseAttaches(['api:read-write'])).toEqual([{ consumer: 'api', access: 'read-write' }]);

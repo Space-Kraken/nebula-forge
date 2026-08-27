@@ -129,8 +129,9 @@ genera un workspace cuyo `forge synth/diff/deploy` produce **Terraform JSON**
 | bindings | Managed identity + RBAC de mínimo privilegio + app settings de descubrimiento |
 
 Aún no en Azure: `http-api` (llega con fusion-azure) y `static-site` (Front
-Door) — el CLI los rechaza con un error claro. El backend de estado es local
-por ahora; para equipos, backend remoto vía `forge bootstrap` (fase 1b).
+Door) — el CLI los rechaza con un error claro. Para equipos:
+`forge bootstrap` provisiona el backend remoto de estado (storage account
+determinístico), lo registra en `forge.json` y migra el estado local.
 
 ## Estructura del monorepo
 
@@ -178,6 +179,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 | `forge synth [módulo] [-e env]` | Genera CloudFormation |
 | `forge diff [módulo] [-e env]` | Qué cambiaría un deploy |
 | `forge deploy <módulo> [-e env]` | Despliega un dominio (`--all` para todos, explícito) |
+| `forge bootstrap [-e env]` | Prepara el entorno: `cdk bootstrap` (AWS) o backend remoto de estado + migración (Azure). Idempotente |
 
 ## Roadmap
 

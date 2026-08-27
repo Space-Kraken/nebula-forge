@@ -23,6 +23,16 @@ export const awsCdkEngine: EngineAdapter = {
     { template: 'engines/aws-cdk/infra/app.ts', target: 'infra/app.ts' },
   ],
   moduleTestTemplate: 'engines/aws-cdk/infra.test.ts.tpl',
+  bootstrap: (model, environment, log) => {
+    // CDK owns its state (CloudFormation); bootstrap provisions the assets
+    // bucket and roles cdk deploy needs, once per account/region.
+    const envSpec = model.environments[environment];
+    const target = envSpec.account ? [`aws://${envSpec.account}/${envSpec.region}`] : [];
+    log(`Bootstrapping AWS environment "${environment}" (region ${envSpec.region}) via cdk bootstrap…`);
+    return runInWorkspace(model.root, 'npx', ['cdk', 'bootstrap', ...target], environment, {
+      CDK_DEFAULT_REGION: envSpec.region,
+    });
+  },
   componentFiles: {
     'http-api': [{ template: 'component/http-api/handler.ts.tpl', target: () => 'src/handler.ts' }],
     'queue-worker': [
