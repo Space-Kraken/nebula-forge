@@ -39,9 +39,27 @@ alias forge='node ~/forge/packages/cli/bin/run.js'
 
 ## Workspace de prueba con `--link`
 
-El flag (oculto) `--link` cablea el workspace generado a TU checkout con
-dependencias `link:` — los cambios que compiles en el repo se reflejan al
-instante, sin publicar:
+Los workspaces generados dependen de `@forgecli/core` y del motor. Como aún
+no están publicados en npm, `pnpm install` no tendría de dónde sacarlos — el
+flag (oculto) `--link` lo resuelve escribiendo las dependencias como
+**symlinks a tu checkout**:
+
+```jsonc
+// sin --link (cuando publiquemos):   "@forgecli/core": "^0.1.0"
+// con --link (hoy):                  "@forgecli/core": "link:<tu-repo>/packages/core"
+```
+
+Consecuencias: (1) no hace falta publicar nada; (2) al compilar el repo
+(`pnpm run build`), TODOS los workspaces linkeados ven el código nuevo al
+instante — es la misma carpeta, no una copia; (3) la ruta es absoluta a tu
+disco, así que un workspace `--link` **no es portable** a otra máquina — por
+eso el flag es solo de desarrollo. (Se usa `link:` y no `file:` porque los
+paquetes se referencian con `workspace:^`, que solo resuelve dentro del
+monorepo.)
+
+Hoy, **todo** workspace que quieras instalar/probar necesita `--link`; cuando
+`@forgecli/*` esté en npm, será solo para probar cambios de forge sin
+release:
 
 ```bash
 cd ~/pruebas                      # fuera del repo
