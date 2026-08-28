@@ -6,18 +6,28 @@ buenas prácticas y el cableado. Tú escribes lógica de negocio.
 
 ## 1. El modelo mental
 
-```mermaid
-flowchart LR
-  ws["🧰 workspace<br/><i>un proyecto (forge new)</i>"]
-  ws --> m1["📦 módulo users<br/><i>un dominio = un stack</i>"]
-  ws --> m2["📦 módulo orders"]
-  ws --> m3["📦 módulo platform"]
-  m1 --> c1(["🌐 api"])
-  m1 --> c2[("🗄️ data")]
-  m2 --> c3(["🌐 api"])
-  m2 --> c4[["⚙️ worker"]]
-  m3 --> c5(("🚌 events"))
 ```
+🧰 workspace ──────────────── el proyecto (forge new)
+├── 📦 users ──────────────── módulo = dominio de negocio = stack propio
+│   ├── 🌐 api ────────────── http-api: la lambda del dominio y sus endpoints
+│   ├── 🗄️ data ───────────── table
+│   └── ✉️ notifications ──── email
+├── 📦 orders
+│   ├── 🌐 api
+│   ├── ⚙️ worker ─────────── queue-worker (cola + DLQ)
+│   └── 🪣 files ──────────── bucket
+└── 📦 platform ───────────── lo (poco) legítimamente compartido
+    ├── 🚪 edge ───────────── gateway: el API general donde se montan dominios
+    ├── 🔐 identity ───────── auth: protege el gateway
+    └── 🚌 events ─────────── event-bus: eventos entre dominios
+
+acoples:  api ─→ data (read-write) · api ─→ notifications (send)
+          api ⇒ platform/edge (montado) · worker ⇐ platform/events (suscrito)
+```
+
+*(El diagrama detallado de TU workspace vive en `docs/architecture.md`,
+regenerado por forge en cada cambio — ese sí en Mermaid, que GitHub/GitLab
+renderizan nativo.)*
 
 | Concepto | Analogía frontend | Qué es en forge |
 |---|---|---|
@@ -37,8 +47,8 @@ dominios publican y se suscriben a él por nombre, sin acoplarse entre sí.
 > ✔️ `forge generate module platform` con el `event-bus` compartido
 > ✔️ un `http-api` llamado `api` **dentro de cada dominio** que exponga rutas
 >
-> ¿Y un API *general* con dominios colgados por path? Ese caso llega con el
-> tipo `gateway` — ver §9 (en camino).
+> ¿Y un API *general* con dominios colgados por path? Para eso existe el tipo
+> `gateway` — ver §9.
 
 ## 2. Crear un proyecto
 
