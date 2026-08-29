@@ -216,6 +216,33 @@ export function renderArchitectureMarkdown(model: WorkspaceModel): string {
       for (const component of domain.components) {
         lines.push(componentRow(model, domain, component));
       }
+
+      for (const component of domain.components) {
+        if (component.type === 'http-api') {
+          lines.push('');
+          const suffix = component.config.mount ? ` *(mounted on \`${component.config.mount}\`)*` : '';
+          lines.push(`**Endpoints of \`${component.name}\`**${suffix}:`);
+          for (const route of component.config.routes) {
+            lines.push(`- \`${route.method} ${route.path}\`${route.public ? ' — 🔓 public' : ''}`);
+          }
+        }
+        if (component.type === 'gateway') {
+          const mountedApis: string[] = [];
+          for (const other of model.domains) {
+            for (const candidate of other.components) {
+              if (candidate.type !== 'http-api' || !candidate.config.mount) continue;
+              const resolved = resolveBinding(model, other, candidate.config.mount);
+              if (resolved?.domain.name === domain.name && resolved.component.name === component.name) {
+                mountedApis.push(`${other.name}/${candidate.name}`);
+              }
+            }
+          }
+          if (mountedApis.length > 0) {
+            lines.push('');
+            lines.push(`**Gateway \`${component.name}\` publishes the routes of:** ${mountedApis.join(', ')}`);
+          }
+        }
+      }
     }
     lines.push('');
     lines.push(`Deploy: \`forge deploy ${domain.name} --env ${model.defaultEnvironment}\` · Test: \`forge test ${domain.name}\``);

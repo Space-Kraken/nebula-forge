@@ -15,12 +15,14 @@ export default class GenerateEndpoint extends BaseCommand {
     'forge generate endpoint create-order --module orders --method POST --route /orders',
   ];
 
+  static aliases = ['g:endpoint', 'g:e', 'ge'];
+
   static args = {
-    name: Args.string({ description: 'endpoint name (kebab-case), e.g. get-order', required: true }),
+    name: Args.string({ description: 'endpoint name (kebab-case), e.g. get-order; prompted when omitted' }),
   };
 
   static flags = {
-    module: Flags.string({ char: 'm', description: 'module that owns the API', required: true }),
+    module: Flags.string({ char: 'm', description: 'module that owns the API (prompted when omitted)' }),
     method: Flags.string({ description: 'HTTP method', options: [...ENDPOINT_METHODS] }),
     route: Flags.string({ description: 'API route, e.g. /orders/{id}' }),
     api: Flags.string({
@@ -35,16 +37,38 @@ export default class GenerateEndpoint extends BaseCommand {
   async run(): Promise<void> {
     const { args, flags } = await this.parse(GenerateEndpoint);
     const model = loadWorkspace(process.cwd());
-    const domain = model.domains.find((candidate) => candidate.name === flags.module);
+    const interactive = canPrompt(flags['no-interactive']);
+
+    let epName = args.name;
+    if (!epName) {
+      if (!interactive) throw new ForgeError('Missing endpoint name', 'Usage: forge generate endpoint <name> …');
+      epName = (await promptInput('Endpoint name (kebab-case, e.g. get-order):')).trim();
+    }
+    let epModule = flags.module;
+    if (!epModule) {
+      if (!interactive || model.domains.length === 0) {
+        throw new ForgeError(
+          'Missing --module',
+          `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none)'}`,
+        );
+      }
+      epModule =
+        model.domains.length === 1
+          ? model.domains[0].name
+          : await promptSelect(
+              'Which module owns the endpoint?',
+              model.domains.map((d) => ({ name: d.name, value: d.name })),
+            );
+    }
+    const domain = model.domains.find((candidate) => candidate.name === epModule);
     if (!domain) {
       throw new ForgeError(
-        `Unknown module "${flags.module}"`,
+        `Unknown module "${epModule}"`,
         `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none)'}`,
       );
     }
 
     const apis = domain.components.filter((component) => component.type === 'http-api');
-    const interactive = canPrompt(flags['no-interactive']);
 
     let apiName = flags.api;
     if (!apiName) {
@@ -52,8 +76,8 @@ export default class GenerateEndpoint extends BaseCommand {
         apiName = apis[0].name;
       } else if (apis.length === 0) {
         throw new ForgeError(
-          `Module "${flags.module}" has no http-api component`,
-          `Create the module's API Lambda first: forge generate component api --module ${flags.module} --type http-api`,
+          `Module "${epModule}" has no http-api component`,
+          `Create the module's API Lambda first: forge generate component api --module ${epModule} --type http-api`,
         );
       } else if (interactive) {
         apiName = await promptSelect(
@@ -62,7 +86,7 @@ export default class GenerateEndpoint extends BaseCommand {
         );
       } else {
         throw new ForgeError(
-          `Module "${flags.module}" has several http-api components (${apis.map((a) => a.name).join(', ')})`,
+          `Module "${epModule}" has several http-api components (${apis.map((a) => a.name).join(', ')})`,
           'Pick one with --api.',
         );
       }
@@ -81,26 +105,26 @@ export default class GenerateEndpoint extends BaseCommand {
     let route = flags.route;
     if (!route) {
       if (!interactive) throw new ForgeError('Missing --route', 'Example: --route /orders/{id}');
-      route = await promptInput('Route:', `/${args.name}`);
+      route = await promptInput('Route:', `/${epName}`);
     }
 
-    addEndpoint(model.root, flags.module, apiName, { name: args.name, method, route, public: flags.public });
+    addEndpoint(model.root, epModule, apiName, { name: epName, method, route, public: flags.public });
     writeArchitectureDocs(model.root);
 
-    this.log(`✔ Attached ${method} ${route} to ${flags.module}/${apiName}`);
+    this.log(`✔ Attached ${method} ${route} to ${epModule}/${apiName}`);
     const api = domain.components.find((component) => component.name === apiName);
     if (api?.type === 'http-api' && api.config.mount) {
       this.log(
-        `ℹ Route topology changed on gateway ${api.config.mount} — deploy "${flags.module}" AND the gateway's module.`,
+        `ℹ Route topology changed on gateway ${api.config.mount} — deploy "${epModule}" AND the gateway's module.`,
       );
     }
-    this.log(`✔ Created controller, use case and test for "${args.name}"`);
+    this.log(`✔ Created controller, use case and test for "${epName}"`);
     this.log('✔ Updated docs/architecture.md');
     this.log('');
     this.log('Implement the business logic in:');
-    this.log(`  domains/${flags.module}/components/${apiName}/src/application/${args.name}.uc.ts`);
+    this.log(`  domains/${epModule}/components/${apiName}/src/application/${epName}.uc.ts`);
     this.log('');
     this.log('Then verify (--update accepts the intentional infra snapshot change):');
-    this.log(`  forge test ${flags.module} --update`);
+    this.log(`  forge test ${epModule} --update`);
   }
 }

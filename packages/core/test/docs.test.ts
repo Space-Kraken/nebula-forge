@@ -133,6 +133,10 @@ describe('renderArchitectureMarkdown', () => {
     // subscriptions are documented next to bindings
     expect(markdown).toContain('⇐ platform/events (subscribed)');
 
+    // endpoints of every http-api are listed per module
+    expect(markdown).toContain('**Endpoints of `intake`**');
+    expect(markdown).toContain('- `ANY /{proxy+}`');
+
     // pipes in descriptions must not break the layout
     expect(markdown).toContain('Handles orders \\| invoices');
     expect(markdown).toContain('_No components yet._');

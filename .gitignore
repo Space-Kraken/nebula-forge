@@ -5,3 +5,5 @@ cdk.out/
 coverage/
 .env
 .DS_Store
+
+revision.txt

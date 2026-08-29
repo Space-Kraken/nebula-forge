@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -184,6 +185,37 @@ export function applyBlueprint(root: string, blueprint: Blueprint): void {
     }
   }
   loadWorkspace(root);
+}
+
+/**
+ * Initializes a Vite app inside a static-site component (app/) and points
+ * config.sourceDir at its build output. Falls back gracefully when create-vite
+ * fails (offline, etc.) — the placeholder site stays usable.
+ */
+export function initViteFrontend(
+  root: string,
+  moduleName: string,
+  componentName: string,
+  template: string,
+  log: (message: string) => void,
+): boolean {
+  const componentDir = path.join(root, 'domains', moduleName, 'components', componentName);
+  const result = spawnSync('pnpm', ['create', 'vite@latest', 'app', '--template', template], {
+    cwd: componentDir,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+  if (result.status !== 0) {
+    log('⚠ create-vite failed — keeping the placeholder site/ (you can retry manually).');
+    return false;
+  }
+  const manifestFile = path.join(componentDir, COMPONENT_MANIFEST);
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, any>;
+  manifest.config = { ...(manifest.config ?? {}), sourceDir: 'app/dist' };
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  fs.rmSync(path.join(componentDir, 'site'), { recursive: true, force: true });
+  loadWorkspace(root);
+  return true;
 }
 
 /** Parses repeated --bind flags of the form "<component>:<access>". */

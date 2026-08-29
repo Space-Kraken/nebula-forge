@@ -12,7 +12,7 @@ import {
   detachSubscription,
 } from '../src/lib/attach';
 import { addEndpoint } from '../src/lib/endpoints';
-import { findReferrers, removeComponent, removeEndpoint } from '../src/lib/remove';
+import { findReferrers, removeComponent, removeEndpoint, removeModule } from '../src/lib/remove';
 import { scaffoldComponent, scaffoldModule, scaffoldWorkspace } from '../src/lib/scaffold';
 
 const createdDirs: string[] = [];
@@ -167,6 +167,32 @@ describe('removeComponent', () => {
     const after = loadWorkspace(root);
     const api = after.domains.find((d) => d.name === 'orders')!.components.find((c) => c.name === 'api');
     expect(api?.bindings).toEqual([{ component: 'data', access: 'read-write' }]);
+  });
+});
+
+describe('removeModule', () => {
+  it('refuses while other modules couple to it, and --force detaches everything', () => {
+    const root = makeWorkspace();
+    attachBinding(root, 'orders', 'api', { component: 'platform/events', access: 'publish' });
+
+    expect(() => removeModule(root, 'platform', { force: false })).toThrow(
+      /Module "platform" is still used by: orders\/api \(binding "platform\/events"\)/,
+    );
+    const detached = removeModule(root, 'platform', { force: true });
+    expect(detached).toHaveLength(1);
+    expect(fs.existsSync(path.join(root, 'domains', 'platform'))).toBe(false);
+
+    const model = loadWorkspace(root);
+    expect(model.domains.map((d) => d.name)).toEqual(['orders']);
+    const api = model.domains[0].components.find((c) => c.name === 'api');
+    expect(api?.bindings).toEqual([{ component: 'data', access: 'read-write' }]);
+  });
+
+  it('removes an unreferenced module outright', () => {
+    const root = makeWorkspace();
+    scaffoldModule(root, 'reporting');
+    expect(removeModule(root, 'reporting', { force: false })).toEqual([]);
+    expect(fs.existsSync(path.join(root, 'domains', 'reporting'))).toBe(false);
   });
 });
 

@@ -98,6 +98,56 @@ export function removeComponent(
 }
 
 // Fusion-style controllers use decorators; plain-ts controllers use fields.
+/** Couplings from OTHER modules into any component of moduleName. */
+export function findModuleReferrers(model: WorkspaceModel, moduleName: string): Referrer[] {
+  const domain = model.domains.find((candidate) => candidate.name === moduleName);
+  if (!domain) return [];
+  const referrers: Referrer[] = [];
+  for (const component of domain.components) {
+    for (const referrer of findReferrers(model, moduleName, component.name)) {
+      if (referrer.domain !== moduleName) referrers.push(referrer);
+    }
+  }
+  return referrers;
+}
+
+/**
+ * Removes a whole module (domain) and its files. Refuses while other modules
+ * still couple to its components, unless force is set — then those couplings
+ * are detached first, so no dangling reference survives.
+ */
+export function removeModule(root: string, moduleName: string, options: { force: boolean }): Referrer[] {
+  const model = loadWorkspace(root);
+  const domain = model.domains.find((candidate) => candidate.name === moduleName);
+  if (!domain) {
+    throw new ForgeError(
+      `Module "${moduleName}" does not exist`,
+      `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none)'}`,
+    );
+  }
+
+  const referrers = findModuleReferrers(model, moduleName);
+  if (referrers.length > 0 && !options.force) {
+    const list = referrers
+      .map((referrer) => `${referrer.domain}/${referrer.component} (${referrer.kind} "${referrer.ref}")`)
+      .join(', ');
+    throw new ForgeError(
+      `Module "${moduleName}" is still used by: ${list}`,
+      'Detach those couplings first (forge detach <component> …) or pass --force to remove them along with the module.',
+    );
+  }
+  for (const referrer of referrers) {
+    if (referrer.kind === 'binding') detachBinding(root, referrer.domain, referrer.component, referrer.ref);
+    else if (referrer.kind === 'subscription') detachSubscription(root, referrer.domain, referrer.component, referrer.ref);
+    else if (referrer.kind === 'mount') detachMount(root, referrer.domain, referrer.component);
+    else detachAuth(root, referrer.domain, referrer.component);
+  }
+
+  fs.rmSync(domain.path, { recursive: true, force: true });
+  loadWorkspace(root);
+  return referrers;
+}
+
 const CONTROLLER_ROUTE = /@Controller\('([^']*)'\)/;
 const METHOD_DECORATOR = /@(Get|Post|Put|Patch|Delete)\(\)/;
 const PLAIN_METHOD = /readonly method = '(GET|POST|PUT|PATCH|DELETE)'/;

@@ -20,7 +20,7 @@ export default class New extends BaseCommand {
   ];
 
   static args = {
-    name: Args.string({ description: 'workspace name (kebab-case)', required: true }),
+    name: Args.string({ description: 'workspace name (kebab-case); prompted when omitted on a terminal' }),
   };
 
   static flags = {
@@ -50,7 +50,14 @@ export default class New extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(New);
-    const targetDir = path.resolve(process.cwd(), args.name);
+    let wsName = args.name;
+    if (!wsName) {
+      if (!canPrompt(flags['no-interactive'])) {
+        throw new ForgeError('Missing workspace name', 'Usage: forge new <name>');
+      }
+      wsName = (await promptInput('Workspace name (kebab-case):')).trim();
+    }
+    const targetDir = path.resolve(process.cwd(), wsName);
     const adapter = engineFor(flags.engine);
 
     if (flags.profile && adapter.credentials.flag !== 'profile') {
@@ -75,8 +82,8 @@ export default class New extends BaseCommand {
       ]);
     }
 
-    scaffoldWorkspace({ name: args.name, targetDir, link: flags.link, engine: flags.engine });
-    this.log(`✔ Created workspace ${args.name} (engine: ${flags.engine})`);
+    scaffoldWorkspace({ name: wsName, targetDir, link: flags.link, engine: flags.engine });
+    this.log(`✔ Created workspace ${wsName} (engine: ${flags.engine})`);
 
     if (credential) {
       adapter.credentials.write(targetDir, credential);
@@ -107,7 +114,7 @@ export default class New extends BaseCommand {
 
     this.log('');
     this.log('Next steps:');
-    this.log(`  cd ${args.name}`);
+    this.log(`  cd ${wsName}`);
     if (!blueprintId) {
       this.log('  forge generate module <name>');
       this.log('  forge generate component <name> --module <name> --type http-api');

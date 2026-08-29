@@ -12,7 +12,7 @@ import { attachBinding, parseAttaches, parseSubscribes } from '../../lib/attach'
 import { promptBusSubscription, promptOutboundBindings } from '../../lib/coupling-prompts';
 import { writeArchitectureDocs } from '../../lib/docs';
 import { canPrompt, promptCheckbox, promptInput, promptSelect } from '../../lib/interactive';
-import { parseBindings, scaffoldComponent } from '../../lib/scaffold';
+import { initViteFrontend, parseBindings, scaffoldComponent } from '../../lib/scaffold';
 
 const COMPONENT_TYPES: ComponentType[] = [
   'function',
@@ -40,16 +40,17 @@ export default class GenerateComponent extends BaseCommand {
     'forge generate component notifier --module payments --type queue-worker --bind orders:read-write --subscribe platform/events:source=payments',
   ];
 
+  static aliases = ['g:component', 'g:c', 'gc'];
+
   static args = {
-    name: Args.string({ description: 'component name (kebab-case)', required: true }),
+    name: Args.string({ description: 'component name (kebab-case); prompted when omitted on a terminal' }),
   };
 
   static flags = {
-    module: Flags.string({ char: 'm', description: 'module that owns the component', required: true }),
+    module: Flags.string({ char: 'm', description: 'module that owns the component (prompted when omitted)' }),
     type: Flags.string({
       char: 't',
-      description: 'component type',
-      required: true,
+      description: 'component type (prompted when omitted)',
       options: COMPONENT_TYPES,
     }),
     'partition-key': Flags.string({
@@ -81,20 +82,59 @@ export default class GenerateComponent extends BaseCommand {
     identity: Flags.string({
       description: 'verified sender for email components: an address (no-reply@app.com) or a domain (app.com)',
     }),
+    frontend: Flags.string({
+      description: 'initialize a frontend inside a static-site component',
+      options: ['none', 'vite'],
+    }),
+    template: Flags.string({
+      description: 'Vite template when --frontend vite (react-ts, vue-ts, svelte-ts, vanilla-ts, …)',
+      default: 'react-ts',
+    }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
   };
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(GenerateComponent);
     const model = loadWorkspace(process.cwd());
-    const domain = model.domains.find((candidate) => candidate.name === flags.module);
+    const interactive = canPrompt(flags['no-interactive']);
+
+    // Wizard mode: anything essential that is missing gets asked on a terminal.
+    let name = args.name;
+    if (!name) {
+      if (!interactive) throw new ForgeError('Missing component name', 'Usage: forge generate component <name> …');
+      name = (await promptInput('Component name (kebab-case):')).trim();
+    }
+    let moduleName = flags.module;
+    if (!moduleName) {
+      if (!interactive || model.domains.length === 0) {
+        throw new ForgeError(
+          'Missing --module',
+          `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none — forge generate module <name>)'}`,
+        );
+      }
+      moduleName =
+        model.domains.length === 1
+          ? model.domains[0].name
+          : await promptSelect(
+              'Which module owns the component?',
+              model.domains.map((d) => ({ name: d.name, value: d.name })),
+            );
+    }
+    const domain = model.domains.find((candidate) => candidate.name === moduleName);
     if (!domain) {
       throw new ForgeError(
-        `Unknown module "${flags.module}"`,
+        `Unknown module "${moduleName}"`,
         `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none — forge generate module <name>)'}`,
       );
     }
-    const type = flags.type as ComponentType;
+    let type = flags.type as ComponentType | undefined;
+    if (!type) {
+      if (!interactive) throw new ForgeError('Missing --type', `Component types: ${COMPONENT_TYPES.join(', ')}`);
+      type = await promptSelect<ComponentType>(
+        'Component type:',
+        COMPONENT_TYPES.map((candidate) => ({ name: candidate, value: candidate })),
+      );
+    }
 
     const bindings = parseBindings(flags.bind);
     const attaches = parseAttaches(flags.attach);
@@ -124,6 +164,19 @@ export default class GenerateComponent extends BaseCommand {
         'Auth protects gateways and http-apis.',
       );
     }
+    if (flags.frontend && type !== 'static-site') {
+      throw new ForgeError(
+        `--frontend does not apply to ${type} components`,
+        'Frontend initialization is for static-site components.',
+      );
+    }
+    let frontend = flags.frontend;
+    if (type === 'static-site' && !frontend && interactive) {
+      frontend = await promptSelect('Initialize a frontend?', [
+        { name: 'no — placeholder site/ only', value: 'none' },
+        { name: 'Vite (app/ with your chosen template)', value: 'vite' },
+      ]);
+    }
     let mount = flags.mount;
 
     let identity = flags.identity;
@@ -139,24 +192,24 @@ export default class GenerateComponent extends BaseCommand {
 
     if (canPrompt(flags['no-interactive'])) {
       if (type === 'http-api' && !mount) {
-        mount = await this.promptMount(model, domain, args.name);
+        mount = await this.promptMount(model, domain, name);
       }
       if (FUNCTION_LIKE_TYPES.includes(type) && bindings.length === 0) {
-        bindings.push(...(await promptOutboundBindings(model, domain, args.name)));
+        bindings.push(...(await promptOutboundBindings(model, domain, name)));
       }
       if (BINDABLE_ACCESS[type] && attaches.length === 0) {
-        attaches.push(...(await this.promptConsumers(domain, args.name, type)));
+        attaches.push(...(await this.promptConsumers(domain, name, type)));
       }
       if (SUBSCRIBER_TYPES.includes(type) && subscriptions.length === 0) {
         subscriptions.push(
-          ...(await promptBusSubscription(model, domain, args.name, (message) => this.warn(message))),
+          ...(await promptBusSubscription(model, domain, name, (message) => this.warn(message))),
         );
       }
     }
 
     // Everything an attach could get wrong is checkable before writing files —
     // fail here so a bad flag never leaves a half-created component behind.
-    this.validateAttaches(domain, args.name, type, attaches);
+    this.validateAttaches(domain, name, type, attaches);
 
     const config: Record<string, unknown> = {};
     if (type === 'table') config.partitionKey = { name: flags['partition-key'] };
@@ -166,24 +219,24 @@ export default class GenerateComponent extends BaseCommand {
     if (flags.auth) config.auth = flags.auth;
     if (type === 'email' && identity) config.identity = identity;
 
-    const componentDir = scaffoldComponent(model.root, flags.module, {
-      name: args.name,
+    const componentDir = scaffoldComponent(model.root, moduleName, {
+      name: name,
       type,
       config: Object.keys(config).length > 0 ? config : undefined,
       bindings,
     });
-    this.log(`✔ Created component ${flags.module}/${args.name} (${type})`);
+    this.log(`✔ Created component ${moduleName}/${name} (${type})`);
 
     try {
       for (const attach of attaches) {
-        const added = attachBinding(model.root, flags.module, attach.consumer, {
-          component: args.name,
+        const added = attachBinding(model.root, moduleName, attach.consumer, {
+          component: name,
           access: attach.access,
         });
         this.log(
           added
-            ? `✔ Attached ${attach.consumer} → ${args.name} (${attach.access})`
-            : `↷ ${attach.consumer} already binds ${args.name}`,
+            ? `✔ Attached ${attach.consumer} → ${name} (${attach.access})`
+            : `↷ ${attach.consumer} already binds ${name}`,
         );
       }
     } catch (error) {
@@ -191,21 +244,28 @@ export default class GenerateComponent extends BaseCommand {
       // retry is not blocked by "component already exists".
       fs.rmSync(componentDir, { recursive: true, force: true });
       writeArchitectureDocs(model.root);
-      this.warn(`Rolled back ${flags.module}/${args.name} — no attach was applied.`);
+      this.warn(`Rolled back ${moduleName}/${name} — no attach was applied.`);
       throw error;
     }
     for (const subscription of subscriptions) {
-      this.log(`✔ Subscribed ${args.name} to ${subscription.bus}`);
+      this.log(`✔ Subscribed ${name} to ${subscription.bus}`);
     }
     if (mount) {
-      this.log(`✔ Mounted ${args.name} on gateway ${mount}`);
+      this.log(`✔ Mounted ${name} on gateway ${mount}`);
+    }
+    if (type === 'static-site' && frontend === 'vite') {
+      this.log(`Initializing Vite (${flags.template}) in ${moduleName}/${name}/app…`);
+      if (initViteFrontend(model.root, moduleName, name, flags.template, (message) => this.warn(message))) {
+        this.log('✔ Vite app created — config.sourceDir now points at app/dist');
+        this.log(`  Build before deploying: cd domains/${moduleName}/components/${name}/app && pnpm install && pnpm build`);
+      }
     }
 
     writeArchitectureDocs(model.root);
     this.log('✔ Updated docs/architecture.md');
     this.log('');
     this.log('Verify the module still synthesizes (--update accepts the intentional infra snapshot change):');
-    this.log(`  forge test ${flags.module} --update`);
+    this.log(`  forge test ${moduleName} --update`);
   }
 
   private validateAttaches(

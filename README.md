@@ -17,6 +17,8 @@ forge deploy payments --env dev
 módulos → componentes → acoples), el flujo completo y las convenciones.
 🔧 **[Desarrollo local](docs/desarrollo-local.md)** — correr forge desde el
 checkout, workspaces `--link` y ciclo de pruebas.
+📚 **[Referencia del CLI](docs/referencia-cli.md)** — cada comando, cada flag,
+alias (`g m`, `g c`, `g e`) y la chuleta.
 
 ## Por qué existe
 
@@ -174,7 +176,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 | `forge generate endpoint <n> -m <mod> [--method GET --route /x/{id}]` | Acopla un endpoint a la Lambda del dominio: ruta en API Gateway + controller fusion + use case + test, siempre en sincronía |
 | `forge attach <comp> -m <mod> [--bind t:acceso] [--subscribe bus:…]` | Acopla un componente **existente** (interactivo sin flags) |
 | `forge detach <comp> -m <mod> [--bind t] [--subscribe bus]` | Desacopla bindings/suscripciones (interactivo: checkbox de acoples actuales) |
-| `forge remove component <n> -m <mod> [--force]` | Elimina un componente; se niega si otros lo usan (`--force` desacopla primero) |
+| `forge remove module\|component\|endpoint <n> [--force]` | Elimina piezas; se niega si algo las usa (`--force` desacopla primero) |
 | `forge remove endpoint <n> -m <mod>` | Elimina un endpoint: ruta + controller + use case + test + barrel |
 | `forge list` | Muestra la arquitectura del workspace |
 | `forge docs [--print]` | Genera `docs/architecture.md` (diagrama Mermaid + tablas); se regenera solo con cada `new`/`generate` |
@@ -187,7 +189,8 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 ## Roadmap
 
 - [ ] Publicar `@forgecli/*` en npm
-- [ ] Azure 1b: `http-api` con fusion-azure, `static-site` con Front Door, `forge bootstrap` (backend remoto de estado)
+- [ ] Azure 1b: `http-api` con fusion-azure, `static-site` con Front Door, Entra External ID, ACS email
+- [ ] Frontend en repo separado del backend (multi-repo: workspaces front/back independientes que se referencian) — diseño pendiente
 - [ ] `state-machine` (Step Functions) para orquestación
 - [ ] `service` (ECS) para microservicios donde Lambda no alcanza, y soporte de VPCs custom
 - [ ] Contratos tipados para eventos entre dominios
