@@ -223,6 +223,7 @@ Requisitos por motor (una vez por entorno, con `forge bootstrap`):
 | `Terraform CLI not found` | Falta el binario (Azure) | Instálalo; forge lo maneja desde ahí |
 | `no prompts en CI` | Diseñado así (sin TTY no pregunta) | Usa los flags `--bind/--attach/--subscribe` |
 | Error con pista `↳` | Todo error de forge trae su cómo-arreglarlo | Léela: es la solución |
+| `Nonexistent flags: -encodedCommand…` | PowerShell trata `{id}` como script block | Cita la ruta: `--route '/users/{id}'` |
 
 ## 9. Gateway compartido: un API para N dominios
 
