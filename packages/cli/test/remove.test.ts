@@ -170,6 +170,18 @@ describe('removeComponent', () => {
   });
 });
 
+describe('assertStaticSourcesBuilt', () => {
+  it('refuses to deploy a static-site whose build output is missing', async () => {
+    const { assertStaticSourcesBuilt } = await import('../src/lib/engines/aws-cdk');
+    const root = makeWorkspace();
+    scaffoldComponent(root, 'platform', { name: 'site', type: 'static-site', config: { sourceDir: 'app/dist' } });
+    const model = loadWorkspace(root);
+    expect(() => assertStaticSourcesBuilt(model, ['platform'])).toThrow(/has no build at "app\/dist"/);
+    // untargeted domains and built sites pass
+    expect(() => assertStaticSourcesBuilt(model, ['orders'])).not.toThrow();
+  });
+});
+
 describe('removeModule', () => {
   it('refuses while other modules couple to it, and --force detaches everything', () => {
     const root = makeWorkspace();

@@ -1,4 +1,6 @@
-import { stackNameFor } from '@forgecli/core';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { ForgeError, stackNameFor } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
 import { runInWorkspace } from '../proc';
 import { writeCredentialSetting } from '../state';
@@ -16,6 +18,23 @@ function runCdk(model: WorkspaceModel, environment: string, args: string[]): num
 
 function stackNames(model: WorkspaceModel, environment: string, domains: string[]): string[] {
   return domains.map((domain) => stackNameFor(model.name, domain, environment));
+}
+
+/** Deploying an unbuilt static-site would ship an empty 403-ing site — refuse. */
+export function assertStaticSourcesBuilt(model: WorkspaceModel, domains: string[]): void {
+  for (const domain of model.domains) {
+    if (!domains.includes(domain.name)) continue;
+    for (const component of domain.components) {
+      if (component.type !== 'static-site') continue;
+      const sourceDir = path.join(component.path, component.config.sourceDir);
+      if (!fs.existsSync(sourceDir)) {
+        throw new ForgeError(
+          `Cannot deploy "${domain.name}": static-site "${component.name}" has no build at "${component.config.sourceDir}"`,
+          `Build the frontend first (e.g. cd ${path.relative(model.root, component.path)}/app && pnpm install && pnpm build).`,
+        );
+      }
+    }
+  }
 }
 
 export const awsCdkEngine: EngineAdapter = {
@@ -85,10 +104,12 @@ export const awsCdkEngine: EngineAdapter = {
     runCdk(model, environment, ['synth', ...stackNames(model, environment, domains)]),
   diff: (model, environment, domains) =>
     runCdk(model, environment, ['diff', ...stackNames(model, environment, domains)]),
-  deploy: (model, environment, domains, options) =>
-    runCdk(model, environment, [
+  deploy: (model, environment, domains, options) => {
+    assertStaticSourcesBuilt(model, domains);
+    return runCdk(model, environment, [
       'deploy',
       ...stackNames(model, environment, domains),
       ...(options.skipApproval ? ['--require-approval', 'never'] : []),
-    ]),
+    ]);
+  },
 };

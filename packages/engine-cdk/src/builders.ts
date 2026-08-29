@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Aws, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Annotations, Aws, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -179,7 +179,12 @@ export function buildComponent(
 
           const functionArn = `arn:${Aws.PARTITION}:lambda:${Aws.REGION}:${Aws.ACCOUNT_ID}:function:${resourceNameFor(ctx.model.name, domain.name, component.name, ctx.environment)}`;
           const importId = `${id}${toConstructId(domain.name)}${toConstructId(component.name)}`;
-          const target = LambdaFunction.fromFunctionArn(scope, `${importId}Fn`, functionArn);
+          // skipPermissions: the invoke permission is granted explicitly below
+          // (CfnPermission) — this also silences CDK's addPermission warning.
+          const target = LambdaFunction.fromFunctionAttributes(scope, `${importId}Fn`, {
+            functionArn,
+            skipPermissions: true,
+          });
           addRestRoutes(api, component.config.routes, new apigateway.LambdaIntegration(target), authorizer);
           new CfnPermission(scope, `${importId}Permission`, {
             action: 'lambda:InvokeFunction',
@@ -436,20 +441,22 @@ export function buildComponent(
       });
 
       const sourceDir = path.join(spec.path, spec.config.sourceDir);
-      if (!fs.existsSync(sourceDir)) {
-        // A silently skipped deployment would ship an empty site where every
-        // request 403s — fail loudly instead.
-        throw new ForgeError(
-          `Component "${ctx.domain.name}/${spec.name}": source directory "${spec.config.sourceDir}" does not exist (${sourceDir})`,
-          'Build your frontend into that directory, or point config.sourceDir at your build output, before synthesizing.',
+      if (fs.existsSync(sourceDir)) {
+        new BucketDeployment(scope, `${id}Deployment`, {
+          sources: [Source.asset(sourceDir)],
+          destinationBucket: bucket,
+          distribution,
+          distributionPaths: ['/*'],
+        });
+      } else {
+        // Not built yet: fine for synth/tests (backend work must not block on
+        // a frontend build), but `forge deploy` refuses — an empty private
+        // bucket behind CloudFront would 403 every request.
+        Annotations.of(scope).addWarningV2(
+          'forge:static-site-not-built',
+          `"${ctx.domain.name}/${spec.name}": source directory "${spec.config.sourceDir}" does not exist — assets will NOT deploy until you build the frontend`,
         );
       }
-      new BucketDeployment(scope, `${id}Deployment`, {
-        sources: [Source.asset(sourceDir)],
-        destinationBucket: bucket,
-        distribution,
-        distributionPaths: ['/*'],
-      });
 
       new CfnOutput(scope, `${id}Url`, {
         value: `https://${distribution.distributionDomainName}`,
