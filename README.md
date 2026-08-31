@@ -46,7 +46,10 @@ una `function`, para reacciones ligeras sin DLQ) se suscribe con
 `subscriptions` en su manifest — el bus se referencia por **nombre
 determinístico**, sin exports de CloudFormation, así cada stack sigue
 desplegándose por separado. `static-site` entrega S3 privado + CloudFront (SPA
-fallback y WAF opcional).
+fallback, WAF opcional, dominio propio con ACM + Route53, y `config.api` para
+servir el API del módulo detrás de la misma distribución en `/api/*` — mismo
+origen, sin CORS). Los gateways/http-apis aceptan CORS explícito y dominio
+custom regional cuando sí hay orígenes externos.
 
 La convención para APIs es **una Lambda por dominio**: un componente
 `http-api` por módulo, y fusion rutea los controllers de ese dominio dentro de

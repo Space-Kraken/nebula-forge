@@ -464,3 +464,100 @@ describe('loadWorkspace', () => {
     expect(() => loadWorkspace(root)).toThrow(/No forge\.json found/);
   });
 });
+
+describe('edge validation: static-site api, cors and custom domains', () => {
+  it('accepts a static-site serving a same-module gateway or unmounted http-api', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { api: 'api' },
+      },
+      'domains/platform/components/api/component.json': { name: 'api', type: 'http-api' },
+    });
+    expect(() => loadWorkspace(root)).not.toThrow();
+  });
+
+  it('rejects a static-site api pointing at an unknown or non-api component', () => {
+    const unknown = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { api: 'missing' },
+      },
+    });
+    expect(() => loadWorkspace(unknown)).toThrow(/unknown api component "missing"/);
+
+    const wrongType = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { api: 'data' },
+      },
+      'domains/platform/components/data/component.json': {
+        name: 'data',
+        type: 'table',
+        config: { partitionKey: { name: 'id' } },
+      },
+    });
+    expect(() => loadWorkspace(wrongType)).toThrow(/but it is a table/);
+  });
+
+  it('rejects a static-site api pointing at a MOUNTED http-api', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': { name: 'edge', type: 'gateway' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { api: 'api' },
+      },
+      'domains/platform/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'edge' },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/mounted on a gateway/);
+  });
+
+  it('rejects cors and domain on mounted apis (they belong to the gateway)', () => {
+    const withCors = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': { name: 'edge', type: 'gateway' },
+      'domains/platform/components/api/component.json': {
+        name: 'api',
+        type: 'http-api',
+        config: { mount: 'edge', cors: true },
+      },
+    });
+    expect(() => loadWorkspace(withCors)).toThrow(/declares its own cors/);
+  });
+
+  it('rejects domain.environments naming unknown environments', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/edge/component.json': {
+        name: 'edge',
+        type: 'gateway',
+        config: {
+          domain: {
+            name: 'api.example.com',
+            zone: { id: 'Z1', name: 'example.com' },
+            environments: ['staging'],
+          },
+        },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/unknown environment "staging"/);
+  });
+});

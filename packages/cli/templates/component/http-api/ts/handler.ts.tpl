@@ -17,23 +17,39 @@ const routes = new Map(
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
+// CORS_ORIGIN is injected by forge when the api (or its gateway) configures
+// cors — preflight is answered by API Gateway; actual responses carry the
+// origin from here.
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '').split(',').filter(Boolean);
+function responseHeaders(event: APIGatewayEvent): Record<string, string> {
+  if (allowedOrigins.length === 0) return JSON_HEADERS;
+  if (allowedOrigins.includes('*')) return { ...JSON_HEADERS, 'access-control-allow-origin': '*' };
+  const origin = event.headers?.origin ?? event.headers?.Origin ?? '';
+  return {
+    ...JSON_HEADERS,
+    'access-control-allow-origin': allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+    vary: 'origin',
+  };
+}
+
 export const handler = async (event: APIGatewayEvent): Promise<APIGatewayProxyResult> => {
+  const headers = responseHeaders(event);
   const controller = routes.get(`${event.httpMethod} ${event.resource}`);
   if (!controller) {
     return {
       statusCode: 404,
-      headers: JSON_HEADERS,
+      headers,
       body: JSON.stringify({ message: `No route for ${event.httpMethod} ${event.resource}` }),
     };
   }
   try {
     const result = await controller.handle(event);
     if (result === undefined || result === null) {
-      return { statusCode: 204, headers: JSON_HEADERS, body: '' };
+      return { statusCode: 204, headers, body: '' };
     }
-    return { statusCode: 200, headers: JSON_HEADERS, body: JSON.stringify(result) };
+    return { statusCode: 200, headers, body: JSON.stringify(result) };
   } catch (error) {
     console.error(`${event.httpMethod} ${event.resource} failed`, error);
-    return { statusCode: 500, headers: JSON_HEADERS, body: JSON.stringify({ message: 'Internal server error' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 };

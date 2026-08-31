@@ -2,9 +2,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Annotations, Aws, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { HttpOrigin, S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { AaaaRecord, ARecord, HostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
+import type { IHostedZone } from 'aws-cdk-lib/aws-route53';
+import { ApiGatewayDomain, CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { EventBus, Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction as LambdaFunctionTarget } from 'aws-cdk-lib/aws-events-targets';
@@ -18,7 +22,7 @@ import { Topic } from 'aws-cdk-lib/aws-sns';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, toConstructId } from '@forgecli/core';
-import type { ComponentSpec, DomainSpec, WorkspaceModel } from '@forgecli/core';
+import type { ComponentSpec, CorsConfig, CustomDomainConfig, DomainSpec, WorkspaceModel } from '@forgecli/core';
 import type { Construct } from 'constructs';
 import type { BuiltComponent } from './types';
 
@@ -63,6 +67,74 @@ function addRestRoutes(
         : undefined,
     );
   }
+}
+
+/** Allowed origins for a cors config, or undefined when cors is off. */
+function corsOrigins(cors: CorsConfig | undefined): string[] | undefined {
+  if (!cors) return undefined;
+  return cors === true ? ['*'] : cors.origins;
+}
+
+/** Preflight (OPTIONS) handled by API Gateway itself, on every resource. */
+function corsPreflight(cors: CorsConfig | undefined): apigateway.CorsOptions | undefined {
+  const origins = corsOrigins(cors);
+  if (!origins) return undefined;
+  return {
+    allowOrigins: origins,
+    allowMethods: apigateway.Cors.ALL_METHODS,
+    allowHeaders: ['content-type', 'authorization', 'x-api-key', 'x-amz-date', 'x-amz-security-token'],
+    maxAge: Duration.hours(1),
+  };
+}
+
+/** The custom domain if it applies to this environment, else undefined. */
+function activeDomain(domain: CustomDomainConfig | undefined, ctx: BuildContext): CustomDomainConfig | undefined {
+  if (!domain) return undefined;
+  return !domain.environments || domain.environments.includes(ctx.environment) ? domain : undefined;
+}
+
+/** Hosted zone from the explicit id/name in config — no account lookup at synth. */
+function dnsZone(scope: Construct, id: string, domain: CustomDomainConfig): IHostedZone {
+  return HostedZone.fromHostedZoneAttributes(scope, `${id}Zone`, {
+    hostedZoneId: domain.zone.id,
+    zoneName: domain.zone.name,
+  });
+}
+
+/** Regional custom domain for a REST API: DNS-validated cert + mapping + alias records. */
+function attachApiDomain(
+  scope: Construct,
+  id: string,
+  specName: string,
+  domainConfig: CustomDomainConfig | undefined,
+  api: apigateway.RestApi,
+  ctx: BuildContext,
+): void {
+  const domain = activeDomain(domainConfig, ctx);
+  if (!domain) return;
+  const zone = dnsZone(scope, id, domain);
+  const certificate = new Certificate(scope, `${id}Cert`, {
+    domainName: domain.name,
+    validation: CertificateValidation.fromDns(zone),
+  });
+  const apiDomain = new apigateway.DomainName(scope, `${id}DomainName`, {
+    domainName: domain.name,
+    certificate,
+    endpointType: apigateway.EndpointType.REGIONAL,
+    securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
+  });
+  new apigateway.BasePathMapping(scope, `${id}Mapping`, {
+    domainName: apiDomain,
+    restApi: api,
+    stage: api.deploymentStage,
+  });
+  const target = RecordTarget.fromAlias(new ApiGatewayDomain(apiDomain));
+  new ARecord(scope, `${id}AliasA`, { zone, recordName: domain.name, target });
+  new AaaaRecord(scope, `${id}AliasAaaa`, { zone, recordName: domain.name, target });
+  new CfnOutput(scope, `${id}DomainUrl`, {
+    value: `https://${domain.name}`,
+    description: `Custom domain of the ${specName} API`,
+  });
 }
 
 /** Cognito authorizer backed by a same-stack auth component, if configured. */
@@ -135,7 +207,14 @@ export function buildComponent(
       if (spec.config.mount) {
         // Mounted on a shared gateway: that gateway publishes the routes and
         // integrates this Lambda by deterministic name — this domain ships
-        // only its code.
+        // only its code. CORS is the gateway's setting, but the response
+        // header must come from THIS Lambda (proxy integration), so the
+        // gateway's origins are injected here, in the Lambda's own stack.
+        const gateway = resolveBinding(ctx.model, ctx.domain, spec.config.mount)?.component;
+        if (gateway && !('pack' in gateway) && gateway.type === 'gateway') {
+          const origins = corsOrigins(gateway.config.cors);
+          if (origins) fn.addEnvironment('CORS_ORIGIN', origins.join(','));
+        }
         return { spec, resource: fn, lambda: fn };
       }
       // REST API (payload v1) with one explicit resource per route: fusion-server
@@ -145,13 +224,17 @@ export function buildComponent(
         restApiName: physicalName(ctx, spec.name, 128),
         cloudWatchRole: false,
         deployOptions: { stageName: ctx.environment, tracingEnabled: true },
+        defaultCorsPreflightOptions: corsPreflight(spec.config.cors),
       });
+      const ownOrigins = corsOrigins(spec.config.cors);
+      if (ownOrigins) fn.addEnvironment('CORS_ORIGIN', ownOrigins.join(','));
       addRestRoutes(
         api,
         spec.config.routes,
         new apigateway.LambdaIntegration(fn),
         authorizerFor(scope, id, spec.config.auth, built),
       );
+      attachApiDomain(scope, id, spec.name, spec.config.domain, api, ctx);
       new CfnOutput(scope, `${id}Url`, {
         value: api.url,
         description: `Base URL of the ${spec.name} API`,
@@ -168,6 +251,7 @@ export function buildComponent(
         restApiName: physicalName(ctx, spec.name, 128),
         cloudWatchRole: false,
         deployOptions: { stageName: ctx.environment, tracingEnabled: true },
+        defaultCorsPreflightOptions: corsPreflight(spec.config.cors),
       });
       const authorizer = authorizerFor(scope, id, spec.config.auth, built);
       let mounted = 0;
@@ -212,6 +296,7 @@ export function buildComponent(
           { methodResponses: [{ statusCode: '404' }] },
         );
       }
+      attachApiDomain(scope, id, spec.name, spec.config.domain, api, ctx);
       new CfnOutput(scope, `${id}Url`, {
         value: api.url,
         description: `Base URL of the ${spec.name} gateway`,
@@ -425,11 +510,61 @@ export function buildComponent(
         });
       }
 
+      // API behind the distribution: /api/* forwards to the same-module REST
+      // API (gateway or unmounted http-api). Same origin for the browser →
+      // no CORS anywhere, and the execute-api URL is never exposed. A
+      // CloudFront Function strips the /api prefix so the API keeps its own
+      // route paths; originPath adds the stage.
+      const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
+      if (spec.config.api) {
+        const target = built.get(spec.config.api)?.resource;
+        if (!(target instanceof apigateway.RestApi)) {
+          // The loader validates config.api; reaching this means a build-order bug.
+          throw new ForgeError(`Cannot serve api "${spec.config.api}": its REST API was not built first`);
+        }
+        const rewrite = new cloudfront.Function(scope, `${id}ApiRewrite`, {
+          code: cloudfront.FunctionCode.fromInline(
+            "function handler(event) { var request = event.request; request.uri = request.uri.replace(/^\\/api/, '') || '/'; return request; }",
+          ),
+          comment: `strip /api before forwarding to the ${spec.config.api} API`,
+        });
+        additionalBehaviors['/api/*'] = {
+          origin: new HttpOrigin(`${target.restApiId}.execute-api.${Aws.REGION}.${Aws.URL_SUFFIX}`, {
+            originPath: `/${ctx.environment}`,
+          }),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          // Never forward the viewer Host header — execute-api routes by Host.
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          functionAssociations: [{ function: rewrite, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
+        };
+      }
+
+      const domainConfig = activeDomain(spec.config.domain, ctx);
+      let zone: IHostedZone | undefined;
+      let certificate: Certificate | undefined;
+      if (domainConfig) {
+        const region = ctx.model.environments[ctx.environment]?.region;
+        if (region !== 'us-east-1') {
+          throw new ForgeError(
+            `Component "${ctx.domain.name}/${spec.name}": a CloudFront custom domain requires the stack to live in us-east-1 (environment "${ctx.environment}" is in ${region})`,
+            'CloudFront only accepts ACM certificates issued in us-east-1. Use a us-east-1 environment for this domain, or restrict domain.environments.',
+          );
+        }
+        zone = dnsZone(scope, id, domainConfig);
+        certificate = new Certificate(scope, `${id}Cert`, {
+          domainName: domainConfig.name,
+          validation: CertificateValidation.fromDns(zone),
+        });
+      }
+
       const distribution = new cloudfront.Distribution(scope, `${id}Distribution`, {
         defaultBehavior: {
           origin: S3BucketOrigin.withOriginAccessControl(bucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
+        additionalBehaviors,
         defaultRootObject: 'index.html',
         errorResponses: spec.config.spa
           ? [
@@ -438,7 +573,15 @@ export function buildComponent(
             ]
           : undefined,
         webAclId: webAcl?.attrArn,
+        domainNames: domainConfig ? [domainConfig.name] : undefined,
+        certificate,
       });
+
+      if (domainConfig && zone) {
+        const aliasTarget = RecordTarget.fromAlias(new CloudFrontTarget(distribution));
+        new ARecord(scope, `${id}AliasA`, { zone, recordName: domainConfig.name, target: aliasTarget });
+        new AaaaRecord(scope, `${id}AliasAaaa`, { zone, recordName: domainConfig.name, target: aliasTarget });
+      }
 
       const sourceDir = path.join(spec.path, spec.config.sourceDir);
       if (fs.existsSync(sourceDir)) {
@@ -459,7 +602,7 @@ export function buildComponent(
       }
 
       new CfnOutput(scope, `${id}Url`, {
-        value: `https://${distribution.distributionDomainName}`,
+        value: domainConfig ? `https://${domainConfig.name}` : `https://${distribution.distributionDomainName}`,
         description: `URL of the ${spec.name} site`,
       });
       return { spec, resource: distribution };

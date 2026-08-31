@@ -34,10 +34,11 @@ export class DomainStack extends Stack {
       production: envSpec?.production ?? props.environment === 'prod',
     };
 
-    // auth builds first: gateways/apis in the same stack reference its pool.
-    const ordered = [...props.domain.components].sort(
-      (a, b) => (a.type === 'auth' ? 0 : 1) - (b.type === 'auth' ? 0 : 1),
-    );
+    // auth builds first (gateways/apis reference its pool); static-site last
+    // (its /api/* behavior references the module's built REST API).
+    const priority = (spec: { type: string }) =>
+      spec.type === 'auth' ? 0 : spec.type === 'static-site' ? 2 : 1;
+    const ordered = [...props.domain.components].sort((a, b) => priority(a) - priority(b));
     for (const spec of ordered) {
       this.components.set(spec.name, buildComponent(this, spec, ctx, this.components));
     }

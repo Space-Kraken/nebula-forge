@@ -138,6 +138,35 @@ export const routeSchema = z
   })
   .strict();
 
+/**
+ * Custom domain: ACM certificate (DNS-validated) + Route53 alias records.
+ * The hosted zone is EXPLICIT (id + name) — no account lookups at synth time,
+ * so synthesis stays reproducible and credential-free.
+ */
+export const customDomainSchema = z
+  .object({
+    /** Fully qualified domain name, e.g. "portfolio.example.com". */
+    name: z.string().min(1).regex(/^[a-z0-9.-]+$/, 'must be a lowercase DNS name'),
+    /** The Route53 hosted zone the name lives in. */
+    zone: z.object({ id: z.string().min(1), name: z.string().min(1) }).strict(),
+    /**
+     * Environments that get the domain (default: all). A DNS name can only
+     * point at one deployment — restrict it (e.g. ["prod"]) when the
+     * workspace has several environments.
+     */
+    environments: z.array(z.string().min(1)).nonempty().optional(),
+  })
+  .strict();
+
+/** CORS: true = any origin (*), or an explicit origin allowlist. */
+export const corsConfigSchema = z.union([
+  z.literal(true),
+  z.object({ origins: z.array(z.string().min(1)).nonempty() }).strict(),
+]);
+
+export type CustomDomainConfig = z.infer<typeof customDomainSchema>;
+export type CorsConfig = z.infer<typeof corsConfigSchema>;
+
 export const httpApiConfigSchema = functionBaseConfig
   .extend({
     routes: z
@@ -155,6 +184,14 @@ export const httpApiConfigSchema = functionBaseConfig
      * UNMOUNTED apis — a mounted api inherits the gateway's authorizer.
      */
     auth: nameSchema.optional(),
+    /**
+     * CORS for browser clients on OTHER origins. Prefer serving the API
+     * behind a static-site (config.api) — same origin needs no CORS. Only
+     * for UNMOUNTED apis; a mounted api inherits the gateway's cors.
+     */
+    cors: corsConfigSchema.optional(),
+    /** Custom domain (regional). Only for UNMOUNTED apis. */
+    domain: customDomainSchema.optional(),
   })
   .strict();
 
@@ -204,12 +241,20 @@ export const staticSiteConfigSchema = z
     spa: z.boolean().default(true),
     /** Put an AWS WAF (managed common rule set) in front of CloudFront. */
     waf: z.boolean().default(false),
+    /**
+     * gateway or (unmounted) http-api in the SAME module served behind this
+     * distribution under /api/* — same origin, so the frontend needs no CORS,
+     * and the execute-api URL is never exposed.
+     */
+    api: nameSchema.optional(),
+    /** Custom domain for the distribution (requires a us-east-1 environment). */
+    domain: customDomainSchema.optional(),
   })
   .strict();
 
 export const eventBusConfigSchema = z.object({}).strict();
 
-/** The shared edge (API front door). Future: custom domain. */
+/** The shared edge (API front door). */
 export const gatewayConfigSchema = z
   .object({
     /**
@@ -218,6 +263,10 @@ export const gatewayConfigSchema = z
      * deterministic across accounts, so auth and gateway stay colocated.
      */
     auth: nameSchema.optional(),
+    /** CORS for browser clients on other origins (applies to every mounted api). */
+    cors: corsConfigSchema.optional(),
+    /** Custom domain (regional) for the gateway. */
+    domain: customDomainSchema.optional(),
   })
   .strict();
 

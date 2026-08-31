@@ -346,3 +346,52 @@ de comandos). Es el estándar que leen Claude Code, Cursor, Copilot y demás —
 así cualquier IA que abras sobre el proyecto sabe que los manifests no se
 editan a mano, que la lógica va en `src/application/*.uc.ts` y qué comandos
 usar. No lo edites: forge lo pisa en cada cambio.
+
+## 13. Frontend + API + dominio propio (sin CORS)
+
+El combo típico de una web con backend (un portfolio, un SaaS chico) se arma
+con tres decisiones que forge ya tomó por ti:
+
+**1. El API va DETRÁS de la distribución.** `--api` en el static-site publica
+un gateway o http-api del mismo módulo bajo `/api/*` de la MISMA distribución
+CloudFront:
+
+```bash
+forge g c api --module platform --type http-api
+forge g c web --module platform --type static-site --frontend vite --api api
+```
+
+El navegador ve un solo origen → **no existe CORS** que configurar, la URL
+de execute-api nunca se expone, y el frontend llama `fetch('/api/status')` a
+secas (en dev local, apunta el proxy de Vite al deploy o a tu API local).
+Forge pone un CloudFront Function que recorta el prefijo `/api` antes de
+reenviar, así las rutas del API no cambian.
+
+**2. Dominio propio con ACM + Route53.** Con la hosted zone ya creada en
+Route53 (forge no compra dominios), pásale el nombre y la zona:
+
+```bash
+forge g c web -m platform -t static-site --api api \
+  --domain portfolio.midominio.com --zone Z0123456789:midominio.com
+```
+
+Forge emite el certificado ACM (validación DNS automática en esa zona), lo
+asocia a CloudFront y crea los registros A/AAAA. Requisito de AWS: el entorno
+debe estar en `us-east-1` (CloudFront solo acepta certs de esa región — forge
+lo valida antes de desplegar). Los gateways/http-apis también aceptan
+`--domain` (cert regional, sin restricción de región). Con varios entornos,
+limita el dominio en component.json: `"domain": { ..., "environments":
+["prod"] }` — un DNS solo puede apuntar a un deploy.
+
+**3. CORS solo si de verdad lo necesitas.** Si otro origen (una app externa,
+otro dominio) consume tu API directamente:
+
+```bash
+forge g c api -m platform -t http-api --cors https://app.otrodominio.com
+```
+
+API Gateway responde el preflight (OPTIONS) y forge inyecta `CORS_ORIGIN` en
+la Lambda para que las respuestas lleven el header (los handlers generados ya
+lo hacen). `--cors "*"` abre a cualquier origen. En un gateway, el cors
+aplica a todos los apis montados. Regla mnemotécnica: **mismo origen
+(`--api`) primero; CORS es para orígenes ajenos.**

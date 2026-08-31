@@ -226,9 +226,64 @@ function validateModel(model: WorkspaceModel): void {
       validateBindings(model, domain, component);
       validateSubscriptions(model, domain, component);
       validateAuth(domain, component);
+      validateEdge(model, domain, component);
     }
   }
   validateApiRoutes(model);
+}
+
+/**
+ * Edge config: a static-site's `api` (served behind CloudFront under /api/*)
+ * must be a same-module gateway or unmounted http-api; cors/domain belong to
+ * whoever actually owns the REST API (never a mounted api); custom-domain
+ * environment restrictions must name real environments.
+ */
+function validateEdge(model: WorkspaceModel, domain: DomainSpec, component: ComponentSpec): void {
+  if (component.type === 'http-api' && component.config.mount) {
+    for (const key of ['cors', 'domain'] as const) {
+      if (component.config[key] !== undefined) {
+        throw new ForgeError(
+          `Component "${domain.name}/${component.name}" is mounted on a gateway but declares its own ${key}`,
+          `A mounted api has no REST API of its own — set ${key} on the gateway component instead.`,
+        );
+      }
+    }
+  }
+
+  const domainConfig =
+    component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api'
+      ? component.config.domain
+      : undefined;
+  for (const environment of domainConfig?.environments ?? []) {
+    if (!model.environments[environment]) {
+      throw new ForgeError(
+        `Component "${domain.name}/${component.name}": domain.environments names unknown environment "${environment}"`,
+        `Environments in forge.json: ${Object.keys(model.environments).join(', ')}.`,
+      );
+    }
+  }
+
+  if (component.type !== 'static-site' || !component.config.api) return;
+  const apiName = component.config.api;
+  const target = domain.components.find((candidate) => candidate.name === apiName);
+  if (!target) {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" references unknown api component "${apiName}"`,
+      'The api served behind a static-site lives in the SAME module (REST API ids are not addressable by deterministic name).',
+    );
+  }
+  if (target.type !== 'gateway' && target.type !== 'http-api') {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" references "${apiName}" as api, but it is a ${target.type}`,
+      'Point config.api at a gateway or an http-api component.',
+    );
+  }
+  if (target.type === 'http-api' && target.config.mount) {
+    throw new ForgeError(
+      `Component "${domain.name}/${component.name}" serves "${apiName}", but that api is mounted on a gateway`,
+      `A mounted api has no REST API of its own — point config.api at the gateway ("${target.config.mount}") instead.`,
+    );
+  }
 }
 
 /**

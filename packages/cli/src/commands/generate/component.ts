@@ -67,6 +67,19 @@ export default class GenerateComponent extends BaseCommand {
     auth: Flags.string({
       description: 'protect the new gateway/http-api with an auth component from the same module',
     }),
+    api: Flags.string({
+      description:
+        'serve a same-module gateway/http-api behind the new static-site at /api/* (same origin — no CORS needed)',
+    }),
+    cors: Flags.string({
+      description: 'enable CORS on the new gateway/http-api: "*" or a comma-separated origin allowlist',
+    }),
+    domain: Flags.string({
+      description: 'custom domain for the new static-site/gateway/http-api (requires --zone)',
+    }),
+    zone: Flags.string({
+      description: 'Route53 hosted zone for --domain, as <zoneId>:<zoneName> (e.g. Z0123456789:example.com)',
+    }),
     identity: Flags.string({
       description: 'verified sender for email components: an address (no-reply@app.com) or a domain (app.com)',
     }),
@@ -170,6 +183,41 @@ export default class GenerateComponent extends BaseCommand {
         'Frontend initialization is for static-site components.',
       );
     }
+    if (flags.api && type !== 'static-site') {
+      throw new ForgeError(
+        `--api does not apply to ${type} components`,
+        'Only static-site components serve an API behind their distribution.',
+      );
+    }
+    if (flags.cors && type !== 'gateway' && type !== 'http-api') {
+      throw new ForgeError(
+        `--cors does not apply to ${type} components`,
+        'CORS is configured on gateways and (unmounted) http-apis.',
+      );
+    }
+    if (flags.domain && type !== 'static-site' && type !== 'gateway' && type !== 'http-api') {
+      throw new ForgeError(
+        `--domain does not apply to ${type} components`,
+        'Custom domains attach to static-sites, gateways and (unmounted) http-apis.',
+      );
+    }
+    if (Boolean(flags.domain) !== Boolean(flags.zone)) {
+      throw new ForgeError(
+        '--domain and --zone go together',
+        'Pass both: --domain portfolio.example.com --zone Z0123456789:example.com.',
+      );
+    }
+    let zone: { id: string; name: string } | undefined;
+    if (flags.zone) {
+      const match = /^([^:]+):(.+)$/.exec(flags.zone);
+      if (!match) {
+        throw new ForgeError(
+          `Invalid --zone "${flags.zone}"`,
+          'Format is <zoneId>:<zoneName>, e.g. Z0123456789:example.com (find both in the Route53 console).',
+        );
+      }
+      zone = { id: match[1], name: match[2] };
+    }
     let frontend = flags.frontend;
     if (type === 'static-site' && !frontend && interactive) {
       frontend = await promptSelect('Initialize a frontend?', [
@@ -190,9 +238,28 @@ export default class GenerateComponent extends BaseCommand {
       identity = (await promptInput('Sender identity (address or domain):')).trim();
     }
 
+    let api = flags.api;
     if (canPrompt(flags['no-interactive'])) {
       if (type === 'http-api' && !mount) {
         mount = await this.promptMount(model, domain, name);
+      }
+      if (type === 'static-site' && !api) {
+        const candidates = domain.components.filter(
+          (component) =>
+            component.type === 'gateway' || (component.type === 'http-api' && !component.config.mount),
+        );
+        if (candidates.length > 0) {
+          api = await promptSelect<string | undefined>(
+            'Serve an API behind the distribution at /api/*? (same origin — the frontend needs no CORS)',
+            [
+              { name: 'no — site only', value: undefined },
+              ...candidates.map((component) => ({
+                name: `${component.name} (${component.type})`,
+                value: component.name,
+              })),
+            ],
+          );
+        }
       }
       if (FUNCTION_LIKE_TYPES.includes(type) && bindings.length === 0) {
         bindings.push(...(await promptOutboundBindings(model, domain, name)));
@@ -218,6 +285,12 @@ export default class GenerateComponent extends BaseCommand {
     if (flags.runtime) config.runtime = flags.runtime;
     if (flags.auth) config.auth = flags.auth;
     if (type === 'email' && identity) config.identity = identity;
+    if (api) config.api = api;
+    if (flags.cors) {
+      const origins = flags.cors.split(',').map((origin) => origin.trim()).filter(Boolean);
+      config.cors = origins.includes('*') ? true : { origins };
+    }
+    if (flags.domain && zone) config.domain = { name: flags.domain, zone };
 
     const componentDir = scaffoldComponent(model.root, moduleName, {
       name: name,
@@ -252,6 +325,12 @@ export default class GenerateComponent extends BaseCommand {
     }
     if (mount) {
       this.log(`✔ Mounted ${name} on gateway ${mount}`);
+    }
+    if (api) {
+      this.log(`✔ Serving ${api} behind the distribution at /api/* (same origin — no CORS needed)`);
+    }
+    if (flags.domain) {
+      this.log(`✔ Custom domain ${flags.domain} (ACM cert + Route53 alias on deploy)`);
     }
     if (type === 'static-site' && frontend === 'vite') {
       this.log(`Initializing Vite (${flags.template}) in ${moduleName}/${name}/app…`);

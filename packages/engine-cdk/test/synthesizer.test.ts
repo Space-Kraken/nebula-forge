@@ -321,6 +321,193 @@ describe('email identities', () => {
   });
 });
 
+describe('edge: api behind the distribution, cors, custom domains', () => {
+  function edgeModel(components: ComponentSpec[]): WorkspaceModel {
+    return {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: {
+        dev: { region: 'us-east-1' },
+        prod: { region: 'eu-west-1', production: true },
+      },
+      root: fixturesDir,
+      domains: [{ name: 'platform', path: fixturesDir, components }],
+    };
+  }
+
+  it('serves a same-module api behind CloudFront at /api/* with a prefix-stripping function', () => {
+    const model = edgeModel([
+      component({ name: 'web', type: 'static-site', config: { api: 'api' } }),
+      component({ name: 'api', type: 'http-api', config: { entry: 'handler.ts' } }),
+    ]);
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.resourceCountIs('AWS::CloudFront::Function', 1);
+    template.hasResourceProperties(
+      'AWS::CloudFront::Distribution',
+      Match.objectLike({
+        DistributionConfig: Match.objectLike({
+          CacheBehaviors: Match.arrayWith([
+            Match.objectLike({
+              PathPattern: '/api/*',
+              AllowedMethods: Match.arrayWith(['POST', 'DELETE']),
+              OriginRequestPolicyId: Match.anyValue(),
+              FunctionAssociations: [Match.objectLike({ EventType: 'viewer-request' })],
+            }),
+          ]),
+          Origins: Match.arrayWith([
+            Match.objectLike({ OriginPath: '/dev', DomainName: Match.objectLike({ 'Fn::Join': Match.anyValue() }) }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('adds a custom domain to a static-site: DNS-validated cert, aliases, A/AAAA records', () => {
+    const model = edgeModel([
+      component({
+        name: 'web',
+        type: 'static-site',
+        config: { domain: { name: 'portfolio.example.com', zone: { id: 'Z0123456789', name: 'example.com' } } },
+      }),
+    ]);
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'portfolio.example.com',
+      ValidationMethod: 'DNS',
+    });
+    template.hasResourceProperties(
+      'AWS::CloudFront::Distribution',
+      Match.objectLike({
+        DistributionConfig: Match.objectLike({ Aliases: ['portfolio.example.com'] }),
+      }),
+    );
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'portfolio.example.com.',
+      Type: 'A',
+      HostedZoneId: 'Z0123456789',
+    });
+    template.hasResourceProperties('AWS::Route53::RecordSet', { Type: 'AAAA' });
+  });
+
+  it('rejects a CloudFront custom domain outside us-east-1 and honors domain.environments', () => {
+    const restricted = edgeModel([
+      component({
+        name: 'web',
+        type: 'static-site',
+        config: {
+          domain: {
+            name: 'portfolio.example.com',
+            zone: { id: 'Z0123456789', name: 'example.com' },
+            environments: ['dev'],
+          },
+        },
+      }),
+    ]);
+    // prod is eu-west-1, but the domain is dev-only → no cert, no error
+    const { stacks } = createApp(restricted, { environment: 'prod', outdir: outdir() });
+    Template.fromStack(stacks.get('platform')!).resourceCountIs('AWS::CertificateManager::Certificate', 0);
+
+    const unrestricted = edgeModel([
+      component({
+        name: 'web',
+        type: 'static-site',
+        config: { domain: { name: 'portfolio.example.com', zone: { id: 'Z0123456789', name: 'example.com' } } },
+      }),
+    ]);
+    expect(() => createApp(unrestricted, { environment: 'prod', outdir: outdir() })).toThrow(/us-east-1/);
+  });
+
+  it('gives a gateway a regional custom domain with base path mapping and alias record', () => {
+    const model = edgeModel([
+      component({
+        name: 'edge',
+        type: 'gateway',
+        config: { domain: { name: 'api.example.com', zone: { id: 'Z0123456789', name: 'example.com' } } },
+      }),
+    ]);
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.hasResourceProperties('AWS::ApiGateway::DomainName', {
+      DomainName: 'api.example.com',
+      EndpointConfiguration: { Types: ['REGIONAL'] },
+      SecurityPolicy: 'TLS_1_2',
+    });
+    template.resourceCountIs('AWS::ApiGateway::BasePathMapping', 1);
+    template.hasResourceProperties('AWS::Route53::RecordSet', { Name: 'api.example.com.', Type: 'A' });
+  });
+
+  it('cors on an http-api: gateway-answered preflight plus CORS_ORIGIN on the lambda', () => {
+    const model = edgeModel([
+      component({
+        name: 'api',
+        type: 'http-api',
+        config: { entry: 'handler.ts', cors: { origins: ['https://app.example.com'] } },
+      }),
+    ]);
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.hasResourceProperties(
+      'AWS::ApiGateway::Method',
+      Match.objectLike({
+        HttpMethod: 'OPTIONS',
+        Integration: Match.objectLike({
+          IntegrationResponses: Match.arrayWith([
+            Match.objectLike({
+              ResponseParameters: Match.objectLike({
+                'method.response.header.Access-Control-Allow-Origin': "'https://app.example.com'",
+              }),
+            }),
+          ]),
+        }),
+      }),
+    );
+    template.hasResourceProperties(
+      'AWS::Lambda::Function',
+      Match.objectLike({
+        Environment: { Variables: Match.objectLike({ CORS_ORIGIN: 'https://app.example.com' }) },
+      }),
+    );
+  });
+
+  it('a mounted api inherits the gateway cors as CORS_ORIGIN in its own stack', () => {
+    const model: WorkspaceModel = {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: { dev: { region: 'us-east-1' } },
+      root: fixturesDir,
+      domains: [
+        {
+          name: 'platform',
+          path: fixturesDir,
+          components: [component({ name: 'edge', type: 'gateway', config: { cors: true } })],
+        },
+        {
+          name: 'users',
+          path: fixturesDir,
+          components: [
+            component({ name: 'api', type: 'http-api', config: { entry: 'handler.ts', mount: 'platform/edge' } }),
+          ],
+        },
+      ],
+    };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    Template.fromStack(stacks.get('users')!).hasResourceProperties(
+      'AWS::Lambda::Function',
+      Match.objectLike({
+        Environment: { Variables: Match.objectLike({ CORS_ORIGIN: '*' }) },
+      }),
+    );
+  });
+});
+
 describe('packs and the escape hatch', () => {
   it('builds pack components through their registered aws builder, bindings included', async () => {
     const { registerPack, resetPacks } = await import('@forgecli/core');

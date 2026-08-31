@@ -65,6 +65,17 @@ Fusion facts verified against fusion 1.4.1 — recheck on upgrade:
 - SQS workers use a forge-generated adapter returning `batchItemFailures`
   (fusion's listener pipeline swallows errors → would ack failed messages).
 
+- Edge: a static-site's `config.api` serves a SAME-module gateway/unmounted
+  http-api behind CloudFront at `/api/*` (HttpOrigin on restApiId + originPath
+  stage + CloudFront Function stripping /api; static-site builds LAST in
+  DomainStack for this). Same origin → no CORS. `config.cors` (gateway/
+  unmounted http-api only) = preflight via defaultCorsPreflightOptions +
+  `CORS_ORIGIN` env on the lambda (for MOUNTED apis the gateway's cors is
+  resolved from the model and injected in the api's own stack); handler
+  templates emit the response header. `config.domain` {name, zone:{id,name},
+  environments?} = DNS-validated ACM cert + A/AAAA aliases — zone is explicit
+  (no lookups), CloudFront domains require us-east-1 (checked at synth like
+  WAF), api domains are regional DomainName + BasePathMapping.
 - `auth` (Cognito User Pool + client) attaches to gateways/unmounted http-apis
   in the SAME module only (pool ids are not deterministic → colocated stack;
   auth builds first in DomainStack). Routes accept `public: true` to skip the
