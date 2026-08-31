@@ -2,8 +2,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ForgeError } from './errors';
 import {
-  BINDABLE_ACCESS,
+  AnyComponentSpec,
+  bindableAccessFor,
   Binding,
+  BUILTIN_COMPONENT_TYPES,
   ComponentManifest,
   ComponentSpec,
   CROSS_DOMAIN_BINDABLE_TYPES,
@@ -13,9 +15,18 @@ import {
   WorkspaceManifest,
   WorkspaceModel,
 } from './model';
+import { loadPacks, packComponentDefinition, packComponentTypes } from './packs';
+import type { PackComponentSpec } from './packs';
 import { resourceNameFor } from './names';
 import { isVariableSegment } from './routes';
-import { componentManifestSchema, domainManifestSchema, workspaceManifestSchema } from './schema';
+import { z } from 'zod';
+import {
+  bindingSchema,
+  componentManifestSchema,
+  domainManifestSchema,
+  nameSchema,
+  workspaceManifestSchema,
+} from './schema';
 
 export const WORKSPACE_MANIFEST = 'forge.json';
 export const DOMAIN_MANIFEST = 'domain.json';
@@ -78,6 +89,7 @@ export function loadWorkspace(startDir: string): WorkspaceModel {
     readJson(path.join(root, WORKSPACE_MANIFEST)),
     path.join(root, WORKSPACE_MANIFEST),
   );
+  loadPacks(root, manifest.packs);
   const model: WorkspaceModel = { ...manifest, root, domains: loadDomains(root) };
   validateModel(model);
   return model;
@@ -98,34 +110,93 @@ function loadDomains(root: string): DomainSpec[] {
         `Domain folder "${entry.name}" declares name "${manifest.name}" — folder and manifest name must match`,
       );
     }
-    domains.push({ ...manifest, path: domainPath, components: loadComponents(domainPath) });
+    const { components, packComponents } = loadComponents(domainPath);
+    domains.push({ ...manifest, path: domainPath, components, packComponents });
   }
   return domains;
 }
 
-function loadComponents(domainPath: string): ComponentSpec[] {
+const packManifestBaseSchema = z
+  .object({
+    name: nameSchema,
+    type: z.string(),
+    description: z.string().optional(),
+    bindings: z.array(bindingSchema).default([]),
+    config: z.unknown().optional(),
+  })
+  .strict();
+
+function loadComponents(domainPath: string): {
+  components: ComponentSpec[];
+  packComponents: PackComponentSpec[];
+} {
   const componentsDir = path.join(domainPath, 'components');
-  if (!fs.existsSync(componentsDir)) return [];
   const components: ComponentSpec[] = [];
+  const packComponents: PackComponentSpec[] = [];
+  if (!fs.existsSync(componentsDir)) return { components, packComponents };
+
   for (const entry of fs.readdirSync(componentsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const componentPath = path.join(componentsDir, entry.name);
     const manifestFile = path.join(componentPath, COMPONENT_MANIFEST);
     if (!fs.existsSync(manifestFile)) continue;
-    const manifest = parseManifest<ComponentManifest>(componentManifestSchema, readJson(manifestFile), manifestFile);
-    if (manifest.name !== entry.name) {
+    const raw = readJson(manifestFile) as { name?: string; type?: string };
+
+    if ((BUILTIN_COMPONENT_TYPES as readonly string[]).includes(raw.type ?? '')) {
+      const manifest = parseManifest<ComponentManifest>(componentManifestSchema, raw, manifestFile);
+      if (manifest.name !== entry.name) {
+        throw new ForgeError(
+          `Component folder "${entry.name}" declares name "${manifest.name}" — folder and manifest name must match`,
+        );
+      }
+      components.push({ ...manifest, path: componentPath } as ComponentSpec);
+      continue;
+    }
+
+    const definition = packComponentDefinition(raw.type ?? '');
+    if (!definition) {
       throw new ForgeError(
-        `Component folder "${entry.name}" declares name "${manifest.name}" — folder and manifest name must match`,
+        `Component "${entry.name}" has unknown type "${raw.type}"`,
+        `Built-in types: ${BUILTIN_COMPONENT_TYPES.join(', ')}. Pack types loaded: ${
+          packComponentTypes().join(', ') || '(none)'
+        }. Packs are declared in forge.json "packs".`,
       );
     }
-    components.push({ ...manifest, path: componentPath } as ComponentSpec);
+    const base = parseManifest<z.infer<typeof packManifestBaseSchema>>(packManifestBaseSchema, raw, manifestFile);
+    if (base.name !== entry.name) {
+      throw new ForgeError(
+        `Component folder "${entry.name}" declares name "${base.name}" — folder and manifest name must match`,
+      );
+    }
+    if (base.bindings.length > 0) {
+      throw new ForgeError(
+        `Component "${base.name}" (pack type "${definition.type}") cannot declare bindings`,
+        'Pack components are passive resources: function-like components bind TO them, not the other way around.',
+      );
+    }
+    const config = definition.configSchema.safeParse(base.config ?? {});
+    if (!config.success) {
+      const issues = config.error.issues
+        .map((issue) => `  - config.${issue.path.join('.') || '(root)'}: ${issue.message}`)
+        .join('\n');
+      throw new ForgeError(`Invalid manifest ${manifestFile} (pack "${definition.pack}"):\n${issues}`);
+    }
+    packComponents.push({
+      name: base.name,
+      type: definition.type,
+      description: base.description,
+      bindings: [],
+      config: config.data as Record<string, unknown>,
+      path: componentPath,
+      pack: definition.pack,
+    });
   }
-  return components;
+  return { components, packComponents };
 }
 
 export interface ResolvedBinding {
   domain: DomainSpec;
-  component: ComponentSpec;
+  component: AnyComponentSpec;
 }
 
 /**
@@ -142,7 +213,9 @@ export function resolveBinding(
   const domainName = slash === -1 ? fromDomain.name : ref.slice(0, slash);
   const componentName = slash === -1 ? ref : ref.slice(slash + 1);
   const domain = model.domains.find((candidate) => candidate.name === domainName);
-  const component = domain?.components.find((candidate) => candidate.name === componentName);
+  const component =
+    domain?.components.find((candidate) => candidate.name === componentName) ??
+    domain?.packComponents?.find((candidate) => candidate.name === componentName);
   return domain && component ? { domain, component } : undefined;
 }
 
@@ -291,7 +364,7 @@ function validateApiRoutes(model: WorkspaceModel): void {
 function validatePhysicalNames(model: WorkspaceModel): void {
   const owners = new Map<string, string>();
   for (const domain of model.domains) {
-    for (const component of domain.components) {
+    for (const component of [...domain.components, ...(domain.packComponents ?? [])]) {
       const flattened = `${model.name}-${domain.name}-${component.name}`;
       const owner = owners.get(flattened);
       if (owner) {
@@ -332,13 +405,16 @@ function validateBindings(model: WorkspaceModel, domain: DomainSpec, component: 
       );
     }
     boundTargets.add(targetKey);
-    if (resolved.domain.name !== domain.name && !CROSS_DOMAIN_BINDABLE_TYPES.includes(resolved.component.type)) {
+    if (
+      resolved.domain.name !== domain.name &&
+      !(CROSS_DOMAIN_BINDABLE_TYPES as readonly string[]).includes(resolved.component.type)
+    ) {
       throw new ForgeError(
         `Component "${domain.name}/${component.name}" binds across domains to "${binding.component}" (${resolved.component.type})`,
         'Only event-bus components accept cross-domain bindings; everything else stays domain-private so stacks remain independently deployable.',
       );
     }
-    const allowed = BINDABLE_ACCESS[resolved.component.type];
+    const allowed = bindableAccessFor(resolved.component.type);
     if (!allowed) {
       throw new ForgeError(
         `Component "${domain.name}/${component.name}" binds to "${binding.component}", but components of type "${resolved.component.type}" cannot be a binding target`,

@@ -1,10 +1,13 @@
 import * as fs from 'node:fs';
 import { Args, Flags } from '@oclif/core';
 import {
-  BINDABLE_ACCESS,
+  bindableAccessFor,
+  BUILTIN_COMPONENT_TYPES,
   ForgeError,
   FUNCTION_LIKE_TYPES,
   loadWorkspace,
+  packComponentDefinition,
+  packComponentTypes,
 } from '@forgecli/core';
 import type { Binding, BindingAccess, ComponentType, DomainSpec, WorkspaceModel } from '@forgecli/core';
 import { BaseCommand } from '../../lib/base';
@@ -14,21 +17,7 @@ import { writeArchitectureDocs } from '../../lib/docs';
 import { canPrompt, promptCheckbox, promptInput, promptSelect } from '../../lib/interactive';
 import { initViteFrontend, parseBindings, scaffoldComponent } from '../../lib/scaffold';
 
-const COMPONENT_TYPES: ComponentType[] = [
-  'function',
-  'http-api',
-  'queue-worker',
-  'table',
-  'bucket',
-  'topic',
-  'static-site',
-  'event-bus',
-  'gateway',
-  'auth',
-  'email',
-];
-
-const SUBSCRIBER_TYPES: ComponentType[] = ['queue-worker', 'function'];
+const SUBSCRIBER_TYPES: readonly string[] = ['queue-worker', 'function'];
 
 export default class GenerateComponent extends BaseCommand {
   static description =
@@ -50,8 +39,7 @@ export default class GenerateComponent extends BaseCommand {
     module: Flags.string({ char: 'm', description: 'module that owns the component (prompted when omitted)' }),
     type: Flags.string({
       char: 't',
-      description: 'component type (prompted when omitted)',
-      options: COMPONENT_TYPES,
+      description: 'component type — built-in or provided by a pack (prompted when omitted)',
     }),
     'partition-key': Flags.string({
       description: 'partition key attribute (table components only)',
@@ -127,12 +115,24 @@ export default class GenerateComponent extends BaseCommand {
         `Available modules: ${model.domains.map((d) => d.name).join(', ') || '(none — forge generate module <name>)'}`,
       );
     }
+    const allTypes: string[] = [...BUILTIN_COMPONENT_TYPES, ...packComponentTypes()];
     let type = flags.type as ComponentType | undefined;
     if (!type) {
-      if (!interactive) throw new ForgeError('Missing --type', `Component types: ${COMPONENT_TYPES.join(', ')}`);
+      if (!interactive) throw new ForgeError('Missing --type', `Component types: ${allTypes.join(', ')}`);
       type = await promptSelect<ComponentType>(
         'Component type:',
-        COMPONENT_TYPES.map((candidate) => ({ name: candidate, value: candidate })),
+        allTypes.map((candidate) => ({
+          name: packComponentDefinition(candidate) ? `${candidate} (pack)` : candidate,
+          value: candidate as ComponentType,
+        })),
+      );
+    }
+    if (!allTypes.includes(type)) {
+      throw new ForgeError(
+        `Unknown component type "${type}"`,
+        `Built-in types: ${BUILTIN_COMPONENT_TYPES.join(', ')}. Pack types loaded: ${
+          packComponentTypes().join(', ') || '(none — declare packs in forge.json)'
+        }.`,
       );
     }
 
@@ -197,7 +197,7 @@ export default class GenerateComponent extends BaseCommand {
       if (FUNCTION_LIKE_TYPES.includes(type) && bindings.length === 0) {
         bindings.push(...(await promptOutboundBindings(model, domain, name)));
       }
-      if (BINDABLE_ACCESS[type] && attaches.length === 0) {
+      if (bindableAccessFor(type) && attaches.length === 0) {
         attaches.push(...(await this.promptConsumers(domain, name, type)));
       }
       if (SUBSCRIBER_TYPES.includes(type) && subscriptions.length === 0) {
@@ -275,11 +275,11 @@ export default class GenerateComponent extends BaseCommand {
     attaches: { consumer: string; access: BindingAccess }[],
   ): void {
     if (attaches.length === 0) return;
-    const allowed = BINDABLE_ACCESS[newType];
+    const allowed = bindableAccessFor(newType);
     if (!allowed) {
       throw new ForgeError(
         `--attach cannot target a new ${newType}: components of that type cannot be a binding target`,
-        `Bindable types: ${Object.keys(BINDABLE_ACCESS).join(', ')}.`,
+        'Bindable types: table, bucket, topic, queue-worker, event-bus, email, and bindable pack types.',
       );
     }
     for (const attach of attaches) {
@@ -337,7 +337,7 @@ export default class GenerateComponent extends BaseCommand {
       `Which components of ${domain.name} should use ${newName}?`,
       consumers.map((component) => ({ name: `${component.name} (${component.type})`, value: component.name })),
     );
-    const allowed = BINDABLE_ACCESS[newType] ?? [];
+    const allowed = bindableAccessFor(newType) ?? [];
     const results: { consumer: string; access: BindingAccess }[] = [];
     for (const consumer of selected) {
       const access =

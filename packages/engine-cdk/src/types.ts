@@ -1,4 +1,4 @@
-import type { BindingAccess, ComponentSpec } from '@forgecli/core';
+import type { AnyComponentSpec, BindingAccess } from '@forgecli/core';
 import type { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import type { IEventBus } from 'aws-cdk-lib/aws-events';
 import type { Function as LambdaFunction } from 'aws-cdk-lib/aws-lambda';
@@ -7,7 +7,7 @@ import type { IConstruct } from 'constructs';
 
 /** A component after synthesis, with the hooks bindings need. */
 export interface BuiltComponent {
-  spec: ComponentSpec;
+  spec: AnyComponentSpec;
   resource: IConstruct;
   /** Present for function-like components (the binding consumer side). */
   lambda?: LambdaFunction;

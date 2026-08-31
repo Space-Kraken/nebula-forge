@@ -47,6 +47,8 @@ export const workspaceManifestSchema = z
       })
       .strict()
       .optional(),
+    /** Component packs: npm package names or relative paths ("./packs/x"). */
+    packs: z.array(z.string()).optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {

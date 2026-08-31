@@ -321,6 +321,92 @@ describe('email identities', () => {
   });
 });
 
+describe('packs and the escape hatch', () => {
+  it('builds pack components through their registered aws builder, bindings included', async () => {
+    const { registerPack, resetPacks } = await import('@forgecli/core');
+    const { Bucket } = await import('aws-cdk-lib/aws-s3');
+    resetPacks();
+    registerPack({
+      name: 'test-pack',
+      components: [
+        {
+          type: 'secret',
+          configSchema: { safeParse: (v: unknown) => ({ success: true, data: v ?? {} }) } as never,
+          bindable: { access: ['read'], envVar: { prefix: 'SECRET', suffix: 'ARN' } },
+          engines: {
+            'aws-cdk': (scope: never, spec: { name: string }) => {
+              const bucket = new Bucket(scope, 'PackResource');
+              return {
+                resource: bucket,
+                grant: (grantee: never) => bucket.grantRead(grantee),
+                bindingEnv: { SECRET_VAULT_ARN: 'arn:test:vault' },
+              };
+            },
+          },
+        },
+      ],
+    });
+
+    const model: WorkspaceModel = {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: { dev: { region: 'us-east-1' } },
+      root: fixturesDir,
+      domains: [
+        {
+          name: 'billing',
+          path: fixturesDir,
+          components: [
+            component({
+              name: 'mailer',
+              type: 'function',
+              config: { entry: 'handler.ts' },
+              bindings: [{ component: 'vault', access: 'read' }],
+            }),
+          ],
+          packComponents: [
+            { name: 'vault', type: 'secret', bindings: [], config: {}, path: fixturesDir, pack: 'test-pack' },
+          ],
+        },
+      ],
+    };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('billing')!);
+    template.resourceCountIs('AWS::S3::Bucket', 1);
+    template.hasResourceProperties(
+      'AWS::Lambda::Function',
+      Match.objectLike({
+        Environment: { Variables: Match.objectLike({ SECRET_VAULT_ARN: 'arn:test:vault' }) },
+      }),
+    );
+    resetPacks();
+  });
+
+  it('runs domains/<module>/extend.ts inside the domain stack', () => {
+    const extendedDir = path.join(fixturesDir, 'extended');
+    const model: WorkspaceModel = {
+      name: 'shop',
+      engine: 'aws-cdk',
+      defaultEnvironment: 'dev',
+      environments: { dev: { region: 'us-east-1' } },
+      root: fixturesDir,
+      domains: [
+        {
+          name: 'billing',
+          path: extendedDir,
+          components: [
+            component({ name: 'mailer', type: 'function', config: { entry: 'handler.ts' } }),
+          ],
+        },
+      ],
+    };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('billing')!);
+    template.hasOutput('ExtendedOutput', { Value: 'from-extend-dev' });
+  });
+});
+
 describe('shared gateway', () => {
   function gatewayModel(): WorkspaceModel {
     return {

@@ -7,6 +7,8 @@ import { packageFunction } from './packaging';
 
 export { AZURE_UNSUPPORTED_TYPES, synthesizeDomain } from './domain';
 export { packageFunction } from './packaging';
+export { applyExtension } from './extend';
+export type { AzureExtendContext, AzureExtendFunction } from './extend';
 export { toNcrontab } from './schedule';
 export { globalName, resourceGroupName, storageAccountName } from './names';
 

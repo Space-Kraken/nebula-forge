@@ -105,11 +105,36 @@ was.
 
 ## Living docs
 
-`core/src/docs.ts` renders docs/architecture.md (Markdown + Mermaid) from the
-model; `forge docs` writes it and every scaffolding command regenerates it
-(`cli/src/lib/docs.ts`). The binding env-var naming lives once in
-`core/src/names.ts` (`bindingEnvVarFor`) and is shared by engine-cdk and docs
-— never duplicate it.
+`core/src/docs.ts` renders docs/architecture.md (Markdown + Mermaid) AND
+AGENTS.md (`renderAgentGuide` — workspace rules + current architecture for AI
+tools) from the model; `forge docs` writes both and every scaffolding command
+regenerates them (`cli/src/lib/docs.ts`). The binding env-var naming lives
+once in `core/src/names.ts` (`bindingEnvVarFor`, with a fallback to the pack
+registry's `bindable.envVar`) and is shared by engine-cdk and docs — never
+duplicate it.
+
+## Extensibility: packs + extend.ts
+
+- **Component packs** (`core/src/packs.ts`): npm packages / local files listed
+  in forge.json `packs`, loaded by `loadPacks` (createRequire from workspace
+  root — the registry is module-global and RESET on every load, so tests that
+  bypass loadWorkspace must registerPack/resetPacks manually). A pack
+  component is PASSIVE in v1: bindable target, no own bindings (loader
+  rejects). Loader parses its config with the pack's zod schema; specs land in
+  `domain.packComponents` (optional array, separate from `components` to avoid
+  type ripple — narrow with `'pack' in spec`). Only aws-cdk has pack builders
+  (`engines['aws-cdk']: AwsPackBuilder` → `{resource, grant?, bindingEnv?}`);
+  engine-azure-tf rejects pack components. Scaffold templates support
+  {{name}}/{{module}}/{{pascalName}}/{{screamingName}}. Example pack:
+  `examples/forge-pack-secret/` (not a workspace package — plain JS,
+  peerDeps on zod + aws-cdk-lib).
+- **Escape hatch**: `domains/<module>/extend.ts|js`, executed at the end of
+  each domain's synth (aws: `applyExtension` with {stack, model, domain,
+  environment, components}; azure: {document, ...}). Loaded via esbuild
+  `buildSync({bundle, packages:'external', write:false})` + `new Function`
+  with `createRequire(file)` — works under node/tsx/vitest without
+  precompiling. Keep extensions inside the domain stack; cross-stack refs
+  stay forbidden.
 
 ## Conventions
 

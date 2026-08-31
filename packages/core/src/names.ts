@@ -1,3 +1,5 @@
+import { packComponentDefinition } from './packs';
+
 /** Naming convention shared by workspaces, domains and components. */
 export const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
@@ -52,7 +54,7 @@ const BINDING_ENV_FORMATS: Record<string, { prefix: string; suffix: string }> = 
 
 /** Env var injected when binding to targetName, or undefined for non-bindable types. */
 export function bindingEnvVarFor(targetType: string, targetName: string): string | undefined {
-  const format = BINDING_ENV_FORMATS[targetType];
+  const format = BINDING_ENV_FORMATS[targetType] ?? packComponentDefinition(targetType)?.bindable?.envVar;
   if (!format) return undefined;
   return `${format.prefix}_${toEnvVarName(targetName)}_${format.suffix}`;
 }

@@ -1,5 +1,6 @@
 import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, stackNameFor } from '@forgecli/core';
 import type { ComponentSpec, DomainSpec, WorkspaceModel } from '@forgecli/core';
+import { applyExtension } from './extend';
 import { deterministicGuid, globalName, resourceGroupName, storageAccountName, tfLabel } from './names';
 import { toNcrontab } from './schedule';
 import { addData, addResource, ref, TfDocument } from './tf';
@@ -18,6 +19,12 @@ interface Ctx {
 }
 
 function assertSupported(ctx: Ctx): void {
+  if ((ctx.domain.packComponents ?? []).length > 0) {
+    throw new ForgeError(
+      `Module "${ctx.domain.name}" uses component packs, which are not supported on azure-terraform yet`,
+      'Pack builders for Azure arrive in a later phase — packs are aws-cdk only for now.',
+    );
+  }
   for (const component of ctx.domain.components) {
     if ((AZURE_UNSUPPORTED_TYPES as readonly string[]).includes(component.type)) {
       throw new ForgeError(
@@ -425,5 +432,6 @@ export function synthesizeDomain(
     doc.output[`${tfLabel(name)}_topic_endpoint`] = { value: ref(address, 'endpoint') };
   }
 
+  applyExtension({ document: doc, model, domain: ctx.domain, environment });
   return doc;
 }

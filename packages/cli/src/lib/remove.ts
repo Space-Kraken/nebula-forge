@@ -70,7 +70,9 @@ export function removeComponent(
 ): Referrer[] {
   const model = loadWorkspace(root);
   const domain = model.domains.find((candidate) => candidate.name === moduleName);
-  const component = domain?.components.find((candidate) => candidate.name === componentName);
+  const component =
+    domain?.components.find((candidate) => candidate.name === componentName) ??
+    domain?.packComponents?.find((candidate) => candidate.name === componentName);
   if (!domain || !component) {
     throw new ForgeError(`Component "${moduleName}/${componentName}" does not exist`);
   }
@@ -103,7 +105,7 @@ export function findModuleReferrers(model: WorkspaceModel, moduleName: string): 
   const domain = model.domains.find((candidate) => candidate.name === moduleName);
   if (!domain) return [];
   const referrers: Referrer[] = [];
-  for (const component of domain.components) {
+  for (const component of [...domain.components, ...(domain.packComponents ?? [])]) {
     for (const referrer of findReferrers(model, moduleName, component.name)) {
       if (referrer.domain !== moduleName) referrers.push(referrer);
     }

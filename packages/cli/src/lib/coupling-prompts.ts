@@ -1,4 +1,4 @@
-import { BINDABLE_ACCESS } from '@forgecli/core';
+import { bindableAccessFor } from '@forgecli/core';
 import type { Binding, BindingAccess, DomainSpec, WorkspaceModel } from '@forgecli/core';
 import type { Subscription } from './attach';
 import { promptCheckbox, promptConfirm, promptInput, promptSelect } from './interactive';
@@ -16,8 +16,8 @@ export async function promptOutboundBindings(
   subjectName: string,
   exclude: ReadonlySet<string> = new Set(),
 ): Promise<Binding[]> {
-  const local = domain.components
-    .filter((component) => BINDABLE_ACCESS[component.type] && component.name !== subjectName)
+  const local = [...domain.components, ...(domain.packComponents ?? [])]
+    .filter((component) => bindableAccessFor(component.type) && component.name !== subjectName)
     .map((component) => ({ ref: component.name, type: component.type }));
   const remoteBuses = model.domains
     .filter((candidate) => candidate.name !== domain.name)
@@ -35,7 +35,7 @@ export async function promptOutboundBindings(
   );
   const bindings: Binding[] = [];
   for (const target of selected) {
-    const allowed = BINDABLE_ACCESS[target.type] ?? [];
+    const allowed = bindableAccessFor(target.type) ?? [];
     const access =
       allowed.length === 1
         ? allowed[0]

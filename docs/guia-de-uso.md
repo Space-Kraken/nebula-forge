@@ -290,3 +290,59 @@ Con auth acoplado, toda ruta exige un JWT del pool salvo las marcadas
 claims llegan al handler en `event.requestContext.authorizer.claims`.
 `forge detach edge -m platform --auth` lo quita; eliminar el `auth` exige
 desacoplarlo primero (o `--force`).
+
+## 10. Escape hatch: `extend.ts` por dominio
+
+Cuando necesitas un recurso que forge no modela (un cron exótico, una alarma,
+un recurso legacy), no abandonas forge: creas `domains/<módulo>/extend.ts`
+con un default export. Forge lo ejecuta al final del synth de ese dominio,
+dentro del mismo stack:
+
+```ts
+// domains/billing/extend.ts  (AWS)
+import { CfnOutput } from 'aws-cdk-lib';
+import type { ExtendContext } from '@forgecli/engine-cdk';
+
+export default function extend(ctx: ExtendContext): void {
+  // ctx.stack (el DomainStack), ctx.model, ctx.domain, ctx.environment,
+  // ctx.components (mapa nombre → recurso construido, para referenciarlos)
+  new CfnOutput(ctx.stack, 'MiOutput', { value: `hola-${ctx.environment}` });
+}
+```
+
+En Azure el contexto trae `ctx.document` (el JSON de Terraform del dominio)
+en lugar de `stack`. El archivo puede ser `.ts` o `.js` — forge lo transpila
+al vuelo, no necesitas compilarlo. Reglas de la casa: el extend vive DENTRO
+del dominio (nada de tocar otros stacks) y es para lo que forge no cubre —
+si te descubres repitiendo el mismo extend en tres proyectos, eso es un pack.
+
+## 11. Component packs: el "modding" de forge
+
+Un pack es un paquete npm (o un archivo local) que agrega tipos de componente
+nuevos al workspace — como los mods del Steam Workshop. Se declara en
+`forge.json`:
+
+```jsonc
+{ "packs": ["forge-pack-secret", "./packs/mi-pack/index.js"] }
+```
+
+A partir de ahí el tipo nuevo es un ciudadano de primera: aparece en
+`forge generate component --type`, en los prompts interactivos (marcado
+`(pack)`), en `forge list`, en los bindings (`--bind api-keys:read` genera
+el env var y el permiso mínimo igual que una tabla), en los diagramas de
+`docs/architecture.md` y en AGENTS.md.
+
+Reglas v1: los componentes de pack son **pasivos** (otros se acoplan a
+ellos; ellos no declaran bindings) y solo el engine `aws-cdk` tiene builders
+de pack (azure-terraform los rechaza por ahora). El ejemplo completo para
+escribir el tuyo está en `examples/forge-pack-secret/` del repo de forge.
+
+## 12. AGENTS.md: contexto para herramientas de IA
+
+Cada comando que cambia la arquitectura regenera dos archivos en la raíz:
+`docs/architecture.md` (para humanos: diagrama + tablas) y `AGENTS.md` (para
+agentes de IA: las reglas del workspace, la arquitectura actual y la chuleta
+de comandos). Es el estándar que leen Claude Code, Cursor, Copilot y demás —
+así cualquier IA que abras sobre el proyecto sabe que los manifests no se
+editan a mano, que la lógica va en `src/application/*.uc.ts` y qué comandos
+usar. No lo edites: forge lo pisa en cada cambio.

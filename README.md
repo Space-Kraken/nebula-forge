@@ -102,13 +102,27 @@ elimina piezas — negándose mientras otros componentes las usen, o
 desacoplándolas primero con `--force`, para que nunca quede una referencia
 colgante.
 
-### Documentación viva
+### Documentación viva (para humanos y para IAs)
 
 `forge docs` genera `docs/architecture.md` con un diagrama Mermaid del
 workspace (dominios como subgrafos, componentes tipados, bindings como
-flechas) y una tabla por módulo con sus env vars inyectadas. Se regenera
-automáticamente con cada `forge new` / `forge generate`, así el diagrama nunca
-miente. Mermaid renderiza nativo en GitHub/GitLab.
+flechas) y una tabla por módulo con sus env vars inyectadas — y `AGENTS.md`
+en la raíz: las reglas del workspace, la arquitectura actual y la chuleta de
+comandos en el formato que leen Claude Code, Cursor y Copilot, para que
+cualquier IA sepa cómo trabajar el proyecto sin romperlo. Ambos se regeneran
+automáticamente con cada `forge new` / `forge generate`, así nunca mienten.
+Mermaid renderiza nativo en GitHub/GitLab.
+
+### Extensibilidad: escape hatch y packs
+
+Cuando forge no modela algo, no lo abandonas: `domains/<módulo>/extend.ts`
+recibe el stack del dominio (o el documento Terraform en Azure) y ahí escribes
+CDK/TF crudo, dentro de las mismas fronteras de dominio. Y cuando ese algo es
+reutilizable, se convierte en un **component pack**: un paquete npm que agrega
+tipos de componente nuevos (`forge.json` → `"packs": [...]`) con schema
+validado, bindings de mínimo privilegio, scaffolding y presencia en docs —
+como el Steam Workshop, pero de arquitectura. Ejemplo completo en
+`examples/forge-pack-secret/`.
 
 ### Testing por dominio
 

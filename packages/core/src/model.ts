@@ -1,4 +1,6 @@
 import type { z } from 'zod';
+import { packComponentDefinition } from './packs';
+import type { PackComponentSpec } from './packs';
 import type {
   bindingAccessSchema,
   bindingSchema,
@@ -23,9 +25,14 @@ type WithPath<T> = T extends unknown ? T & { path: string } : never;
 /** A component manifest resolved against its directory on disk. */
 export type ComponentSpec = WithPath<ComponentManifest>;
 
+/** Built-in or pack-provided component. Pack specs carry a `pack` field. */
+export type AnyComponentSpec = ComponentSpec | PackComponentSpec;
+
 export interface DomainSpec extends DomainManifest {
   path: string;
   components: ComponentSpec[];
+  /** Components provided by packs (forge.json "packs"); passive resources. */
+  packComponents?: PackComponentSpec[];
 }
 
 export interface WorkspaceModel extends WorkspaceManifest {
@@ -35,6 +42,21 @@ export interface WorkspaceModel extends WorkspaceManifest {
 
 /** Component types that run code and may therefore declare bindings. */
 export const FUNCTION_LIKE_TYPES: readonly ComponentType[] = ['function', 'http-api', 'queue-worker'];
+
+/** Every built-in component type (packs add more at load time). */
+export const BUILTIN_COMPONENT_TYPES: readonly ComponentType[] = [
+  'function',
+  'http-api',
+  'queue-worker',
+  'table',
+  'bucket',
+  'topic',
+  'static-site',
+  'event-bus',
+  'gateway',
+  'auth',
+  'email',
+];
 
 /** Which access modes each bindable component type supports as a binding target. */
 export const BINDABLE_ACCESS: Partial<Record<ComponentType, readonly BindingAccess[]>> = {
@@ -52,6 +74,11 @@ export const BINDABLE_ACCESS: Partial<Record<ComponentType, readonly BindingAcce
  * independently deployable.
  */
 export const CROSS_DOMAIN_BINDABLE_TYPES: readonly ComponentType[] = ['event-bus'];
+
+/** Allowed binding access modes for a target type — built-in or pack-provided. */
+export function bindableAccessFor(type: string): readonly BindingAccess[] | undefined {
+  return BINDABLE_ACCESS[type as ComponentType] ?? packComponentDefinition(type)?.bindable?.access;
+}
 
 export type Runtime = z.infer<typeof runtimeSchema>;
 

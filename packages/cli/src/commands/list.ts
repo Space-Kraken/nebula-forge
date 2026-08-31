@@ -35,6 +35,9 @@ export default class List extends BaseCommand {
         }
         this.log(`  ${component.name.padEnd(16)} ${component.type.padEnd(14)} ${relations.join(' ')}`.trimEnd());
       }
+      for (const component of domain.packComponents ?? []) {
+        this.log(`  ${component.name.padEnd(16)} ${component.type.padEnd(14)} (pack ${component.pack})`);
+      }
       this.log('');
     }
   }

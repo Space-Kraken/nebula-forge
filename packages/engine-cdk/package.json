@@ -15,11 +15,11 @@
   "dependencies": {
     "@forgecli/core": "workspace:^",
     "aws-cdk-lib": "^2.200.0",
-    "constructs": "^10.3.0"
+    "constructs": "^10.3.0",
+    "esbuild": "^0.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
-    "esbuild": "^0.23.0",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }

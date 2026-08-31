@@ -171,6 +171,24 @@ describe('synthesizeDomain', () => {
     expect(() => synthesizeDomain(model, 'orders', 'dev')).toThrow(/not supported by the azure-terraform engine yet/);
   });
 
+  it('rejects component packs until azure builders exist', () => {
+    const model = makeModel();
+    model.domains[1].packComponents = [
+      { name: 'vault', type: 'secret', bindings: [], config: {}, path: fixturesDir, pack: 'test-pack' },
+    ];
+    expect(() => synthesizeDomain(model, 'orders', 'dev')).toThrow(/component packs, which are not supported/);
+  });
+
+  it('runs domains/<module>/extend.ts against the terraform document', () => {
+    const model = makeModel();
+    model.domains[1] = { ...model.domains[1], path: path.join(fixturesDir, 'extended') };
+    for (const component of model.domains[1].components) {
+      (component as { path: string }).path = fixturesDir;
+    }
+    const doc = synthesizeDomain(model, 'orders', 'dev');
+    expect(doc.output.extended).toEqual({ value: 'from-extend-dev' });
+  });
+
   it('rejects the ts-fusion runtime until fusion-azure exists', () => {
     const model = makeModel();
     model.domains[1].components.push(

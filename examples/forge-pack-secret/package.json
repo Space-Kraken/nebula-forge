@@ -1,0 +1,11 @@
+{
+  "name": "forge-pack-secret",
+  "version": "0.1.0",
+  "description": "Example forge component pack: a Secrets Manager `secret` component (bindable, read-only)",
+  "main": "index.js",
+  "keywords": ["forge", "forge-pack", "aws", "secrets-manager"],
+  "peerDependencies": {
+    "aws-cdk-lib": "^2.150.0",
+    "zod": "^3.23.0"
+  }
+}

@@ -2,9 +2,12 @@ import { Stack, Tags } from 'aws-cdk-lib';
 import type { StackProps } from 'aws-cdk-lib';
 import type { DomainSpec, WorkspaceModel } from '@forgecli/core';
 import type { Construct } from 'constructs';
+import { ForgeError, packComponentDefinition } from '@forgecli/core';
 import { applyBindings, applySubscriptions } from './bindings';
 import { buildComponent } from './builders';
 import type { BuildContext } from './builders';
+import { applyExtension } from './extend';
+import type { AwsPackBuilder } from './packs';
 import type { BuiltComponent } from './types';
 
 export interface DomainStackProps extends StackProps {
@@ -38,8 +41,26 @@ export class DomainStack extends Stack {
     for (const spec of ordered) {
       this.components.set(spec.name, buildComponent(this, spec, ctx, this.components));
     }
+    for (const spec of props.domain.packComponents ?? []) {
+      const builder = packComponentDefinition(spec.type)?.engines['aws-cdk'] as AwsPackBuilder | undefined;
+      if (!builder) {
+        throw new ForgeError(
+          `Pack component "${props.domain.name}/${spec.name}" (${spec.type}) has no aws-cdk builder`,
+          'The pack must provide engines["aws-cdk"] to synthesize on this engine.',
+        );
+      }
+      const built = builder(this, spec, ctx);
+      this.components.set(spec.name, { spec, ...built });
+    }
     applyBindings(this, ctx, this.components);
     applySubscriptions(this, ctx, this.components);
+    applyExtension({
+      stack: this,
+      model: props.model,
+      domain: props.domain,
+      environment: props.environment,
+      components: this.components,
+    });
 
     Tags.of(this).add('forge:app', props.model.name);
     Tags.of(this).add('forge:domain', props.domain.name);

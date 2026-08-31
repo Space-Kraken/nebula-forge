@@ -54,7 +54,7 @@ Wizard completo en terminal: nombre → módulo → tipo → acoples inferidos.
 | Flag | Descripción |
 |---|---|
 | `-m, --module <mod>` | Módulo dueño (se pregunta/deduce si hay uno solo) |
-| `-t, --type <tipo>` | `function` · `http-api` · `queue-worker` · `table` · `bucket` · `topic` · `static-site` · `event-bus` · `gateway` · `auth` · `email` |
+| `-t, --type <tipo>` | `function` · `http-api` · `queue-worker` · `table` · `bucket` · `topic` · `static-site` · `event-bus` · `gateway` · `auth` · `email` — más los tipos de los packs declarados en `forge.json` |
 | `--bind <comp>:<acceso>` | El NUEVO componente usa a otro (repetible). Accesos: `read`, `write`, `read-write`, `publish`, `send` |
 | `--attach <consumidor>:<acceso>` | Un componente EXISTENTE usa al nuevo (repetible; edita el manifest del consumidor) |
 | `--subscribe <bus>:source=a,b[:detail-type=X]` | Suscribe el nuevo worker/función a un bus (repetible) |
@@ -141,6 +141,7 @@ nunca queda una referencia colgante.
   "engine": "aws-cdk",              // o azure-terraform
   "defaultEnvironment": "dev",
   "defaults": { "runtime": "ts" },  // opcional: runtime por defecto
+  "packs": ["forge-pack-secret"],   // opcional: component packs (npm o "./ruta.js")
   "environments": {
     "dev":  { "region": "us-east-1", "profile": "mi-perfil" },
     "prod": {

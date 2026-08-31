@@ -8,7 +8,10 @@ import {
   FUNCTION_LIKE_TYPES,
   isValidName,
   loadWorkspace,
+  packComponentDefinition,
+  loadPacks,
   toConstructId,
+  toEnvVarName,
   WORKSPACE_MANIFEST,
 } from '@forgecli/core';
 import type { Binding, ComponentType, Runtime } from '@forgecli/core';
@@ -16,11 +19,12 @@ import type { Blueprint } from '@forgecli/blueprints';
 import { regenerateControllersBarrel, writeEndpointFiles } from './endpoints';
 import { engineFor } from './engines';
 import { readWorkspaceSettings } from './settings';
-import { writeJson, writeRendered } from './templates';
+import { writeFile, writeJson, writeRendered } from './templates';
 
 export interface ComponentDef {
   name: string;
-  type: ComponentType;
+  /** Built-in type or a pack-provided type. */
+  type: ComponentType | (string & {});
   config?: Record<string, unknown>;
   bindings?: Binding[];
 }
@@ -124,7 +128,15 @@ export function scaffoldComponent(
   }
   const settings = readWorkspaceSettings(root);
   const adapter = engineFor(settings.engine);
-  if (adapter.unsupportedTypes.includes(def.type)) {
+  loadPacks(root, settings.packs);
+  const packDefinition = packComponentDefinition(def.type);
+  if (packDefinition && !packDefinition.engines[adapter.id]) {
+    throw new ForgeError(
+      `Pack component type "${def.type}" (pack "${packDefinition.pack}") has no ${adapter.id} builder`,
+      'The pack must provide engines["' + adapter.id + '"] to be usable on this workspace.',
+    );
+  }
+  if (adapter.unsupportedTypes.includes(def.type as ComponentType)) {
     throw new ForgeError(
       `Component type "${def.type}" is not supported by the ${adapter.id} engine yet`,
       `Supported everywhere: function, queue-worker, table, bucket, topic, event-bus.`,
@@ -133,7 +145,7 @@ export function scaffoldComponent(
   const runtime = ((def.config as { runtime?: Runtime } | undefined)?.runtime ??
     settings.runtime ??
     adapter.defaultRuntime) as Runtime;
-  if (FUNCTION_LIKE_TYPES.includes(def.type) && !adapter.runtimes.includes(runtime)) {
+  if (FUNCTION_LIKE_TYPES.includes(def.type as ComponentType) && !adapter.runtimes.includes(runtime)) {
     throw new ForgeError(
       `Runtime "${runtime}" is not available on the ${adapter.id} engine`,
       `Available runtimes: ${adapter.runtimes.join(', ')}.` +
@@ -154,9 +166,21 @@ export function scaffoldComponent(
   if (def.bindings && def.bindings.length > 0) manifest.bindings = def.bindings;
   writeJson(path.join(componentDir, COMPONENT_MANIFEST), manifest);
 
-  const vars = { name: def.name, module: moduleName, pascalName: toConstructId(def.name) };
-  for (const file of adapter.componentFiles(def.type, runtime)) {
+  const vars = {
+    name: def.name,
+    module: moduleName,
+    pascalName: toConstructId(def.name),
+    screamingName: toEnvVarName(def.name),
+  };
+  for (const file of adapter.componentFiles(def.type as ComponentType, runtime)) {
     writeRendered(path.join(componentDir, file.target(def.name)), file.template, vars);
+  }
+  for (const file of packDefinition?.scaffold ?? []) {
+    let content = file.content;
+    for (const [key, value] of Object.entries(vars)) {
+      content = content.split(`{{${key}}}`).join(value);
+    }
+    writeFile(path.join(componentDir, file.path), content);
   }
   if (def.type === 'http-api') {
     // The module's API Lambda starts with a status endpoint, generated through

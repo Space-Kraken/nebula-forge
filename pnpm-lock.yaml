@@ -108,13 +108,13 @@ importers:
       constructs:
         specifier: ^10.3.0
         version: 10.8.1
+      esbuild:
+        specifier: ^0.23.0
+        version: 0.23.1
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
-      esbuild:
-        specifier: ^0.23.0
-        version: 0.23.1
       typescript:
         specifier: ^5.5.4
         version: 5.9.3

@@ -73,6 +73,7 @@ export function applySubscriptions(
 ): void {
   for (const component of components.values()) {
     const spec = component.spec;
+    if ('pack' in spec) continue; // pack components are passive
     if (spec.type !== 'queue-worker' && spec.type !== 'function') continue;
     let target: IRuleTarget;
     if (spec.type === 'queue-worker') {
