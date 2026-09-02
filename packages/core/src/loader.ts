@@ -263,7 +263,26 @@ function validateEdge(model: WorkspaceModel, domain: DomainSpec, component: Comp
     }
   }
 
-  if (component.type !== 'static-site' || !component.config.api) return;
+  if (component.type !== 'static-site') return;
+
+  if (component.config.media) {
+    const mediaName = component.config.media;
+    const target = domain.components.find((candidate) => candidate.name === mediaName);
+    if (!target) {
+      throw new ForgeError(
+        `Component "${domain.name}/${component.name}" references unknown media component "${mediaName}"`,
+        'The bucket served behind a static-site lives in the SAME module.',
+      );
+    }
+    if (target.type !== 'bucket') {
+      throw new ForgeError(
+        `Component "${domain.name}/${component.name}" references "${mediaName}" as media, but it is a ${target.type}`,
+        'Point config.media at a bucket component.',
+      );
+    }
+  }
+
+  if (!component.config.api) return;
   const apiName = component.config.api;
   const target = domain.components.find((candidate) => candidate.name === apiName);
   if (!target) {

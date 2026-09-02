@@ -80,6 +80,9 @@ export default class GenerateComponent extends BaseCommand {
       description:
         'serve a same-module gateway/http-api behind the new static-site at /api/* (same origin — no CORS needed)',
     }),
+    media: Flags.string({
+      description: 'serve a same-module bucket behind the new static-site at /media/* (S3 + OAC, cached, GET only)',
+    }),
     cors: Flags.string({
       description: 'enable CORS on the new gateway/http-api: "*" or a comma-separated origin allowlist',
     }),
@@ -198,6 +201,12 @@ export default class GenerateComponent extends BaseCommand {
         'Only static-site components serve an API behind their distribution.',
       );
     }
+    if (flags.media && type !== 'static-site') {
+      throw new ForgeError(
+        `--media does not apply to ${type} components`,
+        'Only static-site components serve a bucket behind their distribution.',
+      );
+    }
     if (flags['sort-key'] && type !== 'table') {
       throw new ForgeError(
         `--sort-key does not apply to ${type} components`,
@@ -272,6 +281,7 @@ export default class GenerateComponent extends BaseCommand {
     }
 
     let api = flags.api;
+    let media = flags.media;
     if (canPrompt(flags['no-interactive'])) {
       if (type === 'http-api' && !mount) {
         mount = await this.promptMount(model, domain, name);
@@ -290,6 +300,18 @@ export default class GenerateComponent extends BaseCommand {
                 name: `${component.name} (${component.type})`,
                 value: component.name,
               })),
+            ],
+          );
+        }
+      }
+      if (type === 'static-site' && !media) {
+        const buckets = domain.components.filter((component) => component.type === 'bucket');
+        if (buckets.length > 0) {
+          media = await promptSelect<string | undefined>(
+            'Serve a bucket behind the distribution at /media/*? (cached, read-only — for uploaded images/files)',
+            [
+              { name: 'no', value: undefined },
+              ...buckets.map((component) => ({ name: component.name, value: component.name })),
             ],
           );
         }
@@ -324,6 +346,7 @@ export default class GenerateComponent extends BaseCommand {
     if (flags.auth) config.auth = flags.auth;
     if (type === 'email' && identity) config.identity = identity;
     if (api) config.api = api;
+    if (media) config.media = media;
     if (flags.cors) {
       const origins = flags.cors.split(',').map((origin) => origin.trim()).filter(Boolean);
       config.cors = origins.includes('*') ? true : { origins };
@@ -366,6 +389,9 @@ export default class GenerateComponent extends BaseCommand {
     }
     if (api) {
       this.log(`✔ Serving ${api} behind the distribution at /api/* (same origin — no CORS needed)`);
+    }
+    if (media) {
+      this.log(`✔ Serving bucket ${media} behind the distribution at /media/* (cached, read-only)`);
     }
     if (flags.domain) {
       this.log(`✔ Custom domain ${flags.domain} (ACM cert + Route53 alias on deploy)`);

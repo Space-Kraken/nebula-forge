@@ -130,6 +130,9 @@ export function renderArchitectureMermaid(model: WorkspaceModel): string {
       if (component.type === 'static-site' && component.config.api) {
         lines.push(`  ${from} -->${edgeLabel('/api/*')} ${mermaidId(domain.name, component.config.api)}`);
       }
+      if (component.type === 'static-site' && component.config.media) {
+        lines.push(`  ${from} -->${edgeLabel('/media/*')} ${mermaidId(domain.name, component.config.media)}`);
+      }
     }
   }
 
@@ -158,6 +161,9 @@ function componentRow(model: WorkspaceModel, domain: DomainSpec, component: Comp
   }
   if (component.type === 'static-site' && component.config.api) {
     relations.push(`⇒ ${component.config.api} (serves /api/*)`);
+  }
+  if (component.type === 'static-site' && component.config.media) {
+    relations.push(`⇒ ${component.config.media} (serves /media/*)`);
   }
   if (
     (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&
@@ -240,6 +246,9 @@ export function renderAgentGuide(model: WorkspaceModel): string {
       }
       if (component.type === 'static-site' && component.config.api) {
         relations.push(`serves ${component.config.api} at /api/*`);
+      }
+      if (component.type === 'static-site' && component.config.media) {
+        relations.push(`serves ${component.config.media} at /media/*`);
       }
       if (
         (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&

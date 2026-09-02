@@ -550,6 +550,47 @@ export function buildComponent(
         };
       }
 
+      // Media behind the distribution: /media/* serves a same-module bucket
+      // through OAC — GET/HEAD only (uploads go through a bound function),
+      // cached, and the /media prefix is stripped so bucket keys stay clean.
+      // READ-only access on purpose: LIST would let GET /media/ return the
+      // whole bucket listing (missing objects answer 403 instead of 404).
+      if (spec.config.media) {
+        const mediaBucket = built.get(spec.config.media)?.resource;
+        if (!(mediaBucket instanceof Bucket)) {
+          // The loader validates config.media; reaching this means a build-order bug.
+          throw new ForgeError(`Cannot serve media "${spec.config.media}": its bucket was not built first`);
+        }
+        const mediaRewrite = new cloudfront.Function(scope, `${id}MediaRewrite`, {
+          code: cloudfront.FunctionCode.fromInline(
+            "function handler(event) { var request = event.request; request.uri = request.uri.replace(/^\\/media/, '') || '/'; return request; }",
+          ),
+          comment: `strip /media before forwarding to the ${spec.config.media} bucket`,
+        });
+        additionalBehaviors['/media/*'] = {
+          origin: S3BucketOrigin.withOriginAccessControl(mediaBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+          functionAssociations: [{ function: mediaRewrite, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
+        };
+      }
+
+      // SPA fallback. CustomErrorResponses are DISTRIBUTION-wide, so with an
+      // api/media behavior they would rewrite the API's 403/404 into a 200
+      // index.html. With extra origins the fallback moves to a viewer-request
+      // function on the default behavior: extensionless paths (client routes)
+      // rewrite to /index.html, real asset misses and API errors stay honest.
+      const spaViaFunction = spec.config.spa && Boolean(spec.config.api || spec.config.media);
+      const spaRewrite = spaViaFunction
+        ? new cloudfront.Function(scope, `${id}SpaRewrite`, {
+            code: cloudfront.FunctionCode.fromInline(
+              "function handler(event) { var request = event.request; if (request.uri.indexOf('.') === -1) { request.uri = '/index.html'; } return request; }",
+            ),
+            comment: 'SPA fallback: serve index.html for client-side routes',
+          })
+        : undefined;
+
       const domainConfig = activeDomain(spec.config.domain, ctx);
       let zone: IHostedZone | undefined;
       let certificate: Certificate | undefined;
@@ -572,15 +613,19 @@ export function buildComponent(
         defaultBehavior: {
           origin: S3BucketOrigin.withOriginAccessControl(bucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          functionAssociations: spaRewrite
+            ? [{ function: spaRewrite, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }]
+            : undefined,
         },
         additionalBehaviors,
         defaultRootObject: 'index.html',
-        errorResponses: spec.config.spa
-          ? [
-              { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
-              { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
-            ]
-          : undefined,
+        errorResponses:
+          spec.config.spa && !spaViaFunction
+            ? [
+                { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
+                { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
+              ]
+            : undefined,
         webAclId: webAcl?.attrArn,
         domainNames: domainConfig ? [domainConfig.name] : undefined,
         certificate,

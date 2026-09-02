@@ -344,7 +344,9 @@ describe('edge: api behind the distribution, cors, custom domains', () => {
     const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
     const template = Template.fromStack(stacks.get('platform')!);
 
-    template.resourceCountIs('AWS::CloudFront::Function', 1);
+    // /api rewrite + SPA fallback (spa mode moves off CustomErrorResponses
+    // when an extra origin exists, so API errors stay honest)
+    template.resourceCountIs('AWS::CloudFront::Function', 2);
     template.hasResourceProperties(
       'AWS::CloudFront::Distribution',
       Match.objectLike({
@@ -363,6 +365,41 @@ describe('edge: api behind the distribution, cors, custom domains', () => {
         }),
       }),
     );
+  });
+
+  it('serves a same-module bucket at /media/* and switches the SPA fallback to a function', () => {
+    const model = edgeModel([
+      component({ name: 'web', type: 'static-site', config: { media: 'uploads' } }),
+      component({ name: 'uploads', type: 'bucket' }),
+    ]);
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    // media rewrite + SPA fallback rewrite
+    template.resourceCountIs('AWS::CloudFront::Function', 2);
+    template.hasResourceProperties(
+      'AWS::CloudFront::Distribution',
+      Match.objectLike({
+        DistributionConfig: Match.objectLike({
+          CacheBehaviors: Match.arrayWith([
+            Match.objectLike({
+              PathPattern: '/media/*',
+              AllowedMethods: ['GET', 'HEAD'],
+              FunctionAssociations: [Match.objectLike({ EventType: 'viewer-request' })],
+            }),
+          ]),
+          // the SPA fallback moved to the default behavior's function…
+          DefaultCacheBehavior: Match.objectLike({
+            FunctionAssociations: [Match.objectLike({ EventType: 'viewer-request' })],
+          }),
+        }),
+      }),
+    );
+    // …so distribution-wide error rewrites (which would mask media 404s as
+    // 200 index.html) are gone
+    const distributions = template.findResources('AWS::CloudFront::Distribution');
+    const config = Object.values(distributions)[0].Properties.DistributionConfig;
+    expect(config.CustomErrorResponses).toBeUndefined();
   });
 
   it('adds a custom domain to a static-site: DNS-validated cert, aliases, A/AAAA records', () => {

@@ -292,6 +292,12 @@ export const staticSiteConfigSchema = z
      * and the execute-api URL is never exposed.
      */
     api: nameSchema.optional(),
+    /**
+     * bucket in the SAME module served behind this distribution under
+     * /media/* (S3 origin + OAC, GET/HEAD only, cached). Upload through a
+     * bound function with clean keys — the /media prefix is stripped.
+     */
+    media: nameSchema.optional(),
     /** Custom domain for the distribution (requires a us-east-1 environment). */
     domain: customDomainSchema.optional(),
   })

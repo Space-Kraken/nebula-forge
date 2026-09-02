@@ -39,6 +39,9 @@ export default class List extends BaseCommand {
         if (component.type === 'static-site' && component.config.api) {
           relations.push(`⇒ ${component.config.api} (serves /api/*)`);
         }
+        if (component.type === 'static-site' && component.config.media) {
+          relations.push(`⇒ ${component.config.media} (serves /media/*)`);
+        }
         if (
           (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&
           component.config.domain

@@ -593,3 +593,42 @@ describe('schedule validation (fail at load, never at deploy)', () => {
     expect(() => loadWorkspace(root)).toThrow(/Invalid schedule/);
   });
 });
+
+describe('static-site media validation', () => {
+  it('accepts a same-module bucket and rejects unknown or non-bucket targets', () => {
+    const ok = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { media: 'uploads' },
+      },
+      'domains/platform/components/uploads/component.json': { name: 'uploads', type: 'bucket' },
+    });
+    expect(() => loadWorkspace(ok)).not.toThrow();
+
+    const unknown = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { media: 'missing' },
+      },
+    });
+    expect(() => loadWorkspace(unknown)).toThrow(/unknown media component "missing"/);
+
+    const wrongType = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/web/component.json': {
+        name: 'web',
+        type: 'static-site',
+        config: { media: 'api' },
+      },
+      'domains/platform/components/api/component.json': { name: 'api', type: 'http-api' },
+    });
+    expect(() => loadWorkspace(wrongType)).toThrow(/but it is a http-api/);
+  });
+});

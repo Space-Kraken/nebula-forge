@@ -385,6 +385,28 @@ lo valida antes de desplegar). Los gateways/http-apis también aceptan
 limita el dominio en component.json: `"domain": { ..., "environments":
 ["prod"] }` — un DNS solo puede apuntar a un deploy.
 
+**2b. Media detrás de la distribución.** Si la app sirve archivos subidos
+(imágenes de un editor, adjuntos), monta un bucket del mismo módulo en
+`/media/*`:
+
+```bash
+forge g c uploads -m platform -t bucket --attach api:read-write
+forge g c web -m platform -t static-site --api api --media uploads
+```
+
+El API sube al bucket con keys limpias (`posts/1/cover.jpg` — forge recorta
+el prefijo `/media`) y el frontend las muestra como
+`<img src="/media/posts/1/cover.jpg">`: mismo origen, cacheado por
+CloudFront, solo lectura (GET/HEAD — las subidas van por el API, nunca por
+CloudFront), y el bucket sigue privado (OAC). Un archivo inexistente
+responde 403, no un listado ni el index.html.
+
+Nota SPA: con `--api` o `--media`, el fallback SPA deja de usar
+CustomErrorResponses (son globales a la distribución y convertirían un 404
+del API en un index.html con 200) y pasa a una CloudFront Function: las
+rutas sin extensión sirven index.html; los errores reales del API y de
+media llegan tal cual.
+
 **3. CORS solo si de verdad lo necesitas.** Si otro origen (una app externa,
 otro dominio) consume tu API directamente:
 

@@ -68,7 +68,12 @@ Fusion facts verified against fusion 1.4.1 — recheck on upgrade:
 - Edge: a static-site's `config.api` serves a SAME-module gateway/unmounted
   http-api behind CloudFront at `/api/*` (HttpOrigin on restApiId + originPath
   stage + CloudFront Function stripping /api; static-site builds LAST in
-  DomainStack for this). Same origin → no CORS. `config.cors` (gateway/
+  DomainStack for this). Same origin → no CORS. `config.media` mounts a
+  same-module bucket at `/media/*` (S3+OAC origin, GET/HEAD, cached, prefix
+  stripped; READ-only on purpose — LIST would expose the bucket listing at
+  GET /media/). With api/media present the SPA fallback switches from
+  CustomErrorResponses (distribution-wide → would mask API/media 404s as 200
+  index.html) to a viewer-request function rewriting extensionless URIs. `config.cors` (gateway/
   unmounted http-api only) = preflight via defaultCorsPreflightOptions +
   `CORS_ORIGIN` env on the lambda (for MOUNTED apis the gateway's cors is
   resolved from the model and injected in the api's own stack); handler

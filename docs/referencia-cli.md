@@ -61,6 +61,7 @@ Wizard completo en terminal: nombre → módulo → tipo → acoples inferidos.
 | `--mount <gw>` | Monta el nuevo http-api en un gateway (`edge` o `platform/edge`) |
 | `--auth <auth>` | Protege el nuevo gateway/http-api con un `auth` del mismo módulo |
 | `--api <comp>` | Sirve un gateway/http-api del mismo módulo detrás del nuevo `static-site` en `/api/*` (mismo origen — sin CORS; se pregunta si hay candidatos) |
+| `--media <bucket>` | Sirve un bucket del mismo módulo detrás del nuevo `static-site` en `/media/*` (S3+OAC, cacheado, solo GET; se pregunta si hay buckets) |
 | `--cors <origenes>` | CORS en el nuevo gateway/http-api: `"*"` o lista separada por comas |
 | `--domain <fqdn>` | Dominio propio (ACM + Route53) para `static-site`/`gateway`/`http-api`; requiere `--zone` |
 | `--zone <id:nombre>` | Hosted zone de Route53 para `--domain` (ej. `Z0123456789:midominio.com`) |
