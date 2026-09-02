@@ -22,6 +22,6 @@ export default class Diff extends BaseCommand {
     const model = loadWorkspace(process.cwd());
     const environment = resolveEnvironment(model, flags.env);
     const domains = resolveDomains(model, args.module, { all: true, requireExplicitAll: false });
-    this.exit(engineFor(model.engine).diff(model, environment, domains));
+    this.exit(await engineFor(model.engine).diff(model, environment, domains));
   }
 }

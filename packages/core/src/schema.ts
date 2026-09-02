@@ -113,10 +113,55 @@ const functionBaseConfig = z.object({
   runtime: runtimeSchema.optional(),
 });
 
+const RATE_UNITS = ['minute', 'minutes', 'hour', 'hours', 'day', 'days'];
+
+/**
+ * EventBridge schedule grammar, checked at load time — a typo'd expression
+ * must fail here, never in the middle of a deploy.
+ */
+export function scheduleIssue(expression: string): string | undefined {
+  const rate = /^rate\((\d+) ([a-z]+)\)$/.exec(expression);
+  if (rate) {
+    const value = Number(rate[1]);
+    const unit = rate[2];
+    if (value < 1 || !RATE_UNITS.includes(unit)) {
+      return 'rate() takes a positive number and a unit: minute(s), hour(s) or day(s)';
+    }
+    if (value === 1 && unit.endsWith('s')) return `rate(1 …) uses the singular unit: "rate(1 ${unit.slice(0, -1)})"`;
+    if (value > 1 && !unit.endsWith('s')) return `rate(${value} …) uses the plural unit: "rate(${value} ${unit}s)"`;
+    return undefined;
+  }
+  const cron = /^cron\(([^)]*)\)$/.exec(expression);
+  if (cron) {
+    const fields = cron[1].trim().split(/\s+/);
+    if (fields.length !== 6) {
+      return `cron() takes 6 fields (minute hour day-of-month month day-of-week year), got ${fields.length} — unix cron has 5, EventBridge adds the year`;
+    }
+    if (fields.some((field) => !/^[A-Za-z0-9,*/?#LW-]+$/.test(field))) {
+      return 'cron() has an invalid character in one of its fields';
+    }
+    if (fields[2] !== '?' && fields[4] !== '?') {
+      return 'EventBridge requires "?" in day-of-month or day-of-week (both cannot carry a value)';
+    }
+    return undefined;
+  }
+  return 'expected "rate(N unit)" or "cron(m h dom mon dow y)"';
+}
+
+export const scheduleSchema = z.string().superRefine((expression, ctx) => {
+  const issue = scheduleIssue(expression);
+  if (issue) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Invalid schedule "${expression}": ${issue}. Examples: rate(5 minutes), rate(1 hour), cron(0 12 * * ? *)`,
+    });
+  }
+});
+
 export const functionConfigSchema = functionBaseConfig
   .extend({
     /** EventBridge schedule expression, e.g. "rate(1 hour)" or "cron(0 12 * * ? *)". */
-    schedule: z.string().optional(),
+    schedule: scheduleSchema.optional(),
     /**
      * EventBridge subscriptions delivered directly to this function. For
      * workloads that need retries and a DLQ, prefer a queue-worker.

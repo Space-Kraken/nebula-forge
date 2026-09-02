@@ -224,6 +224,8 @@ Requisitos por motor (una vez por entorno, con `forge bootstrap`):
 | `no prompts en CI` | Diseñado así (sin TTY no pregunta) | Usa los flags `--bind/--attach/--subscribe` |
 | Error con pista `↳` | Todo error de forge trae su cómo-arreglarlo | Léela: es la solución |
 | `Nonexistent flags: -encodedCommand…` | PowerShell trata `{id}` como script block | Cita la ruta: `--route '/users/{id}'` |
+| `EBUSY … rename 'cdk.out\bundling-temp…'` intermitente (Windows) | Defender/indexador retiene archivos recién bundleados mientras CDK renombra el staging | forge reintenta solo (hasta 3 intentos); si persiste, excluye `cdk.out` del antivirus |
+| `Invalid schedule "rate(1 hours)"` | EventBridge exige singular con 1 y plural con N>1; cron lleva 6 campos con `?` | Sigue el hint: `rate(1 hour)`, `rate(5 minutes)`, `cron(0 12 * * ? *)` |
 
 ## 9. Gateway compartido: un API para N dominios
 

@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadWorkspace } from '../src';
+import { loadWorkspace, scheduleIssue } from '../src';
 
 const createdDirs: string[] = [];
 
@@ -559,5 +559,37 @@ describe('edge validation: static-site api, cors and custom domains', () => {
       },
     });
     expect(() => loadWorkspace(root)).toThrow(/unknown environment "staging"/);
+  });
+});
+
+describe('schedule validation (fail at load, never at deploy)', () => {
+  it('accepts EventBridge rate() and cron() forms', () => {
+    expect(scheduleIssue('rate(1 hour)')).toBeUndefined();
+    expect(scheduleIssue('rate(5 minutes)')).toBeUndefined();
+    expect(scheduleIssue('rate(2 days)')).toBeUndefined();
+    expect(scheduleIssue('cron(0 12 * * ? *)')).toBeUndefined();
+    expect(scheduleIssue('cron(0/15 8-18 ? * MON-FRI *)')).toBeUndefined();
+  });
+
+  it('catches the classic typos', () => {
+    expect(scheduleIssue('rate(1 hours)')).toMatch(/singular/);
+    expect(scheduleIssue('rate(2 hour)')).toMatch(/plural/);
+    expect(scheduleIssue('rate(0 minutes)')).toMatch(/positive/);
+    expect(scheduleIssue('cron(0 12 * * *)')).toMatch(/6 fields/);
+    expect(scheduleIssue('cron(0 12 * * * *)')).toMatch(/\?/);
+    expect(scheduleIssue('every hour')).toMatch(/expected/);
+  });
+
+  it('rejects a bad schedule when the workspace loads', () => {
+    const root = makeWorkspace({
+      'forge.json': baseManifest,
+      'domains/ops/domain.json': { name: 'ops' },
+      'domains/ops/components/nightly/component.json': {
+        name: 'nightly',
+        type: 'function',
+        config: { schedule: 'rate(1 hours)' },
+      },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/Invalid schedule/);
   });
 });

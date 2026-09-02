@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   componentManifestSchema,
+  renderAgentGuide,
   renderArchitectureMarkdown,
   renderArchitectureMermaid,
 } from '../src';
@@ -54,7 +55,14 @@ function makeModel(): WorkspaceModel {
       {
         name: 'web',
         path: '/tmp/na',
-        components: [component({ name: 'site', type: 'static-site' })],
+        components: [
+          component({
+            name: 'site',
+            type: 'static-site',
+            config: { api: 'api', domain: { name: 'shop.example.com', zone: { id: 'Z1', name: 'example.com' } } },
+          }),
+          component({ name: 'api', type: 'http-api' }),
+        ],
       },
       { name: 'reporting', path: '/tmp/na', components: [] },
     ],
@@ -91,6 +99,9 @@ describe('renderArchitectureMermaid', () => {
     // cross-domain integration is dashed: publish binding and subscription
     expect(mermaid).toContain('order_processing__intake -.->|"publish"| platform__events');
     expect(mermaid).toContain('platform__events -.->|"orders"| order_processing__jobs');
+
+    // a static-site serving its module's api draws the /api/* edge
+    expect(mermaid).toContain('web__site -->|"/api/*"| web__api');
 
     // ids must never contain dashes (invalid in mermaid identifiers)
     for (const line of mermaid.split('\n').slice(1)) {
@@ -133,6 +144,10 @@ describe('renderArchitectureMarkdown', () => {
     // subscriptions are documented next to bindings
     expect(markdown).toContain('⇐ platform/events (subscribed)');
 
+    // edge couplings: served api and custom domain
+    expect(markdown).toContain('⇒ api (serves /api/*)');
+    expect(markdown).toContain('🌐 shop.example.com');
+
     // endpoints of every http-api are listed per module
     expect(markdown).toContain('**Endpoints of `intake`**');
     expect(markdown).toContain('- `ANY /{proxy+}`');
@@ -141,5 +156,11 @@ describe('renderArchitectureMarkdown', () => {
     expect(markdown).toContain('Handles orders \\| invoices');
     expect(markdown).toContain('_No components yet._');
     expect(markdown).toContain('forge deploy order-processing --env dev');
+  });
+
+  it('surfaces edge couplings in the agent guide too', () => {
+    const guide = renderAgentGuide(makeModel());
+    expect(guide).toContain('serves api at /api/*');
+    expect(guide).toContain('domain: shop.example.com');
   });
 });

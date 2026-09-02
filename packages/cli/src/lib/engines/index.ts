@@ -43,8 +43,8 @@ export interface EngineAdapter {
   defaultRuntime: Runtime;
   /** Source files scaffolded for a component of the given type and runtime. */
   componentFiles(type: ComponentType, runtime: Runtime): EngineComponentFile[];
-  synth(model: WorkspaceModel, environment: string, domains: string[]): number;
-  diff(model: WorkspaceModel, environment: string, domains: string[]): number;
+  synth(model: WorkspaceModel, environment: string, domains: string[]): number | Promise<number>;
+  diff(model: WorkspaceModel, environment: string, domains: string[]): number | Promise<number>;
   /** Prepares the account/environment: deploy prerequisites and state management. */
   bootstrap(model: WorkspaceModel, environment: string, log: (message: string) => void): number;
   deploy(
@@ -52,7 +52,7 @@ export interface EngineAdapter {
     environment: string,
     domains: string[],
     options: { skipApproval: boolean },
-  ): number;
+  ): number | Promise<number>;
 }
 
 export const ENGINES: Record<string, EngineAdapter> = {

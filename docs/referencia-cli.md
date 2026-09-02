@@ -66,6 +66,9 @@ Wizard completo en terminal: nombre → módulo → tipo → acoples inferidos.
 | `--zone <id:nombre>` | Hosted zone de Route53 para `--domain` (ej. `Z0123456789:midominio.com`) |
 | `--runtime <rt>` | `ts-fusion` (default AWS) · `ts` (hexagonal puro; default Azure) |
 | `--partition-key <attr>` | Partition key para `table` (default `id`) |
+| `--sort-key <attr>` | Sort key para `table` (opcional) |
+| `--schedule <expr>` | Ejecuta la `function` en horario: `"rate(N unidad)"` o `"cron(m h dom mes dow año)"` — la expresión se valida al generar, no en el deploy |
+| `--source-dir <dir>` | Carpeta del build a publicar en `static-site` (default `site/`; para frameworks que forge no inicializa, ej. Next con `out/`) |
 | `--identity <id>` | Remitente para `email`: dirección o dominio (se pregunta si falta) |
 | `--frontend <f>` | `none` · `vite` — inicializa frontend en `static-site` (se pregunta) |
 | `--template <t>` | Template de Vite (`react-ts` default, `vue-ts`, `svelte-ts`, `vanilla-ts`…) |

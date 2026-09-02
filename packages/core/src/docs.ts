@@ -127,6 +127,9 @@ export function renderArchitectureMermaid(model: WorkspaceModel): string {
       if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
         lines.push(`  ${from} -->${edgeLabel('auth')} ${mermaidId(domain.name, component.config.auth)}`);
       }
+      if (component.type === 'static-site' && component.config.api) {
+        lines.push(`  ${from} -->${edgeLabel('/api/*')} ${mermaidId(domain.name, component.config.api)}`);
+      }
     }
   }
 
@@ -152,6 +155,15 @@ function componentRow(model: WorkspaceModel, domain: DomainSpec, component: Comp
   }
   if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
     relations.push(`→ ${component.config.auth} (authorizer)`);
+  }
+  if (component.type === 'static-site' && component.config.api) {
+    relations.push(`⇒ ${component.config.api} (serves /api/*)`);
+  }
+  if (
+    (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&
+    component.config.domain
+  ) {
+    relations.push(`🌐 ${component.config.domain.name}`);
   }
 
   const envVars =
@@ -225,6 +237,15 @@ export function renderAgentGuide(model: WorkspaceModel): string {
       if (component.type === 'http-api' && component.config.mount) relations.push(`⇒ ${component.config.mount}`);
       if ((component.type === 'http-api' || component.type === 'gateway') && component.config.auth) {
         relations.push(`auth: ${component.config.auth}`);
+      }
+      if (component.type === 'static-site' && component.config.api) {
+        relations.push(`serves ${component.config.api} at /api/*`);
+      }
+      if (
+        (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&
+        component.config.domain
+      ) {
+        relations.push(`domain: ${component.config.domain.name}`);
       }
       const detail = relations.length > 0 ? ` — ${relations.join(' · ')}` : '';
       lines.push(`  - \`${component.name}\` (${component.type})${detail}`);

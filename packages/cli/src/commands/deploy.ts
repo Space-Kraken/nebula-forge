@@ -26,6 +26,6 @@ export default class Deploy extends BaseCommand {
     const domains = resolveDomains(model, args.module, { all: flags.all, requireExplicitAll: true });
 
     this.log(`Deploying ${domains.join(', ')} (environment: ${environment}, engine: ${model.engine})`);
-    this.exit(engineFor(model.engine).deploy(model, environment, domains, { skipApproval: flags.yes }));
+    this.exit(await engineFor(model.engine).deploy(model, environment, domains, { skipApproval: flags.yes }));
   }
 }

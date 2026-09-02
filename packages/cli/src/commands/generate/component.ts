@@ -45,6 +45,15 @@ export default class GenerateComponent extends BaseCommand {
       description: 'partition key attribute (table components only)',
       default: 'id',
     }),
+    'sort-key': Flags.string({
+      description: 'sort key attribute (table components only)',
+    }),
+    schedule: Flags.string({
+      description: 'run the new function on a schedule: "rate(N unit)" or "cron(m h dom mon dow y)"',
+    }),
+    'source-dir': Flags.string({
+      description: 'directory (relative to the component) with the built site to publish (static-site; default site/)',
+    }),
     bind: Flags.string({
       description: 'bind the NEW component to a sibling (or domain/bus) as <component>:<access> (repeatable)',
       multiple: true,
@@ -189,6 +198,24 @@ export default class GenerateComponent extends BaseCommand {
         'Only static-site components serve an API behind their distribution.',
       );
     }
+    if (flags['sort-key'] && type !== 'table') {
+      throw new ForgeError(
+        `--sort-key does not apply to ${type} components`,
+        'Sort keys are for table components.',
+      );
+    }
+    if (flags.schedule && type !== 'function') {
+      throw new ForgeError(
+        `--schedule does not apply to ${type} components`,
+        'Schedules run function components. For recurring queue processing, schedule a function that sends to the queue.',
+      );
+    }
+    if (flags['source-dir'] && type !== 'static-site') {
+      throw new ForgeError(
+        `--source-dir does not apply to ${type} components`,
+        'The published directory is a static-site setting.',
+      );
+    }
     if (flags.cors && type !== 'gateway' && type !== 'http-api') {
       throw new ForgeError(
         `--cors does not apply to ${type} components`,
@@ -219,11 +246,17 @@ export default class GenerateComponent extends BaseCommand {
       zone = { id: match[1], name: match[2] };
     }
     let frontend = flags.frontend;
-    if (type === 'static-site' && !frontend && interactive) {
+    if (type === 'static-site' && !frontend && interactive && !flags['source-dir']) {
       frontend = await promptSelect('Initialize a frontend?', [
         { name: 'no — placeholder site/ only', value: 'none' },
         { name: 'Vite (app/ with your chosen template)', value: 'vite' },
       ]);
+    }
+    if (flags['source-dir'] && frontend === 'vite') {
+      throw new ForgeError(
+        '--source-dir conflicts with --frontend vite',
+        'Vite frontends build to app/dist and forge sets sourceDir for you. Use --source-dir for frameworks forge does not initialize (Next, Astro, …).',
+      );
     }
     let mount = flags.mount;
 
@@ -279,7 +312,12 @@ export default class GenerateComponent extends BaseCommand {
     this.validateAttaches(domain, name, type, attaches);
 
     const config: Record<string, unknown> = {};
-    if (type === 'table') config.partitionKey = { name: flags['partition-key'] };
+    if (type === 'table') {
+      config.partitionKey = { name: flags['partition-key'] };
+      if (flags['sort-key']) config.sortKey = { name: flags['sort-key'] };
+    }
+    if (flags.schedule) config.schedule = flags.schedule;
+    if (flags['source-dir']) config.sourceDir = flags['source-dir'];
     if (subscriptions.length > 0) config.subscriptions = subscriptions;
     if (mount) config.mount = mount;
     if (flags.runtime) config.runtime = flags.runtime;

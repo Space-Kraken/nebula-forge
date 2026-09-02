@@ -33,6 +33,18 @@ export default class List extends BaseCommand {
         if (component.type === 'http-api' && component.config.mount) {
           relations.push(`⇒ ${component.config.mount} (mounted)`);
         }
+        if ((component.type === 'gateway' || component.type === 'http-api') && component.config.auth) {
+          relations.push(`🔒 ${component.config.auth} (auth)`);
+        }
+        if (component.type === 'static-site' && component.config.api) {
+          relations.push(`⇒ ${component.config.api} (serves /api/*)`);
+        }
+        if (
+          (component.type === 'static-site' || component.type === 'gateway' || component.type === 'http-api') &&
+          component.config.domain
+        ) {
+          relations.push(`🌐 ${component.config.domain.name}`);
+        }
         this.log(`  ${component.name.padEnd(16)} ${component.type.padEnd(14)} ${relations.join(' ')}`.trimEnd());
       }
       for (const component of domain.packComponents ?? []) {

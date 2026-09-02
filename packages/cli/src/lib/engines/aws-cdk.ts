@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ForgeError, stackNameFor } from '@forgecli/core';
 import type { WorkspaceModel } from '@forgecli/core';
-import { runInWorkspace } from '../proc';
+import { runInWorkspace, runInWorkspaceRetrying } from '../proc';
 import { writeCredentialSetting } from '../state';
 import type { EngineAdapter } from './index';
 
@@ -14,6 +14,26 @@ function profileEnv(model: WorkspaceModel, environment: string): Record<string, 
 
 function runCdk(model: WorkspaceModel, environment: string, args: string[]): number {
   return runInWorkspace(model.root, 'npx', ['cdk', ...args], environment, profileEnv(model, environment));
+}
+
+/**
+ * Windows race: Defender/indexers hold freshly written bundle files while
+ * AssetStaging renames its temp dir → intermittent EBUSY on an otherwise
+ * healthy synth. Bundling happens before CloudFormation is touched, so a
+ * retry is always safe — including for deploy.
+ */
+const STAGING_EBUSY = /EBUSY: resource busy or locked/;
+
+function runCdkRetrying(model: WorkspaceModel, environment: string, args: string[]): Promise<number> {
+  return runInWorkspaceRetrying(model.root, 'npx', ['cdk', ...args], environment, profileEnv(model, environment), {
+    pattern: STAGING_EBUSY,
+    attempts: 3,
+    delayMs: (attempt) => attempt * 1500,
+    onRetry: (nextAttempt, total) =>
+      console.error(
+        `forge: a file lock (EBUSY) interrupted asset staging — retrying (attempt ${nextAttempt}/${total})…`,
+      ),
+  });
 }
 
 function stackNames(model: WorkspaceModel, environment: string, domains: string[]): string[] {
@@ -101,12 +121,12 @@ export const awsCdkEngine: EngineAdapter = {
     }
   },
   synth: (model, environment, domains) =>
-    runCdk(model, environment, ['synth', ...stackNames(model, environment, domains)]),
+    runCdkRetrying(model, environment, ['synth', ...stackNames(model, environment, domains)]),
   diff: (model, environment, domains) =>
-    runCdk(model, environment, ['diff', ...stackNames(model, environment, domains)]),
+    runCdkRetrying(model, environment, ['diff', ...stackNames(model, environment, domains)]),
   deploy: (model, environment, domains, options) => {
     assertStaticSourcesBuilt(model, domains);
-    return runCdk(model, environment, [
+    return runCdkRetrying(model, environment, [
       'deploy',
       ...stackNames(model, environment, domains),
       ...(options.skipApproval ? ['--require-approval', 'never'] : []),
