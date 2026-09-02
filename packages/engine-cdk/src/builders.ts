@@ -55,15 +55,15 @@ function addRestRoutes(
   api: apigateway.RestApi,
   routes: { method: string; path: string; public?: boolean }[],
   integration: apigateway.Integration,
-  authorizer?: apigateway.CognitoUserPoolsAuthorizer,
+  getAuthorizer?: () => apigateway.CognitoUserPoolsAuthorizer,
 ): void {
   for (const route of routes) {
     const resource = route.path === '/' ? api.root : api.root.resourceForPath(route.path);
     resource.addMethod(
       route.method,
       integration,
-      authorizer && !route.public
-        ? { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO }
+      getAuthorizer && !route.public
+        ? { authorizer: getAuthorizer(), authorizationType: apigateway.AuthorizationType.COGNITO }
         : undefined,
     );
   }
@@ -137,22 +137,31 @@ function attachApiDomain(
   });
 }
 
-/** Cognito authorizer backed by a same-stack auth component, if configured. */
+/**
+ * Cognito authorizer backed by a same-stack auth component, if configured.
+ * Lazy on purpose: the authorizer is only instantiated when the first
+ * non-public route attaches it — CDK refuses to synth an authorizer that no
+ * method references (e.g. a gateway whose mounted routes are all public
+ * status endpoints).
+ */
 function authorizerFor(
   scope: Construct,
   apiId: string,
   authName: string | undefined,
   built: ReadonlyMap<string, BuiltComponent>,
-): apigateway.CognitoUserPoolsAuthorizer | undefined {
+): (() => apigateway.CognitoUserPoolsAuthorizer) | undefined {
   if (!authName) return undefined;
   const auth = built.get(authName);
   if (!auth?.userPool) {
     // The loader validates auth references; reaching this means a programming error.
     throw new ForgeError(`Cannot attach auth "${authName}": auth component was not built first`);
   }
-  return new apigateway.CognitoUserPoolsAuthorizer(scope, `${apiId}Authorizer`, {
-    cognitoUserPools: [auth.userPool],
-  });
+  const userPool = auth.userPool;
+  let authorizer: apigateway.CognitoUserPoolsAuthorizer | undefined;
+  return () =>
+    (authorizer ??= new apigateway.CognitoUserPoolsAuthorizer(scope, `${apiId}Authorizer`, {
+      cognitoUserPools: [userPool],
+    }));
 }
 
 function createFunction(

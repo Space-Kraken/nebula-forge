@@ -692,6 +692,31 @@ describe('shared gateway', () => {
     template.resourcePropertiesCountIs('AWS::ApiGateway::Method', { AuthorizationType: 'NONE' }, 1);
   });
 
+  it('a gateway with auth whose mounted routes are all public synthesizes without an authorizer', () => {
+    // Regression: CDK refuses an authorizer no method references, so the
+    // authorizer must be lazy — the day-one scaffold (auth + gateway + only
+    // public /status routes) must still synth.
+    const model = gatewayModel();
+    model.domains[0].components.push(component({ name: 'identity', type: 'auth' }));
+    model.domains[0].components[0] = component({ name: 'edge', type: 'gateway', config: { auth: 'identity' } });
+    model.domains[1].components[0] = component({
+      name: 'api',
+      type: 'http-api',
+      config: {
+        entry: 'handler.ts',
+        mount: 'platform/edge',
+        routes: [{ method: 'GET', path: '/users/status', public: true }],
+      },
+    });
+    model.domains = [model.domains[0], model.domains[1]];
+
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('platform')!);
+
+    template.resourceCountIs('AWS::ApiGateway::Authorizer', 0);
+    template.resourcePropertiesCountIs('AWS::ApiGateway::Method', { AuthorizationType: 'NONE' }, 1);
+  });
+
   it('an empty gateway still deploys with a 404 placeholder', () => {
     const model = gatewayModel();
     model.domains = [model.domains[0]];
