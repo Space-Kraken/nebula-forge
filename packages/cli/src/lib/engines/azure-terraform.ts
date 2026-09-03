@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ForgeError, FUNCTION_LIKE_TYPES, globalName, resourceNameFor } from '@forgecli/core';
+import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, globalName, resourceNameFor } from '@forgecli/core';
 import type { EngineCapabilityProvider, WorkspaceModel } from '@forgecli/core';
 import { commandAvailable, runInWorkspace } from '../proc';
 import { writeCredentialSetting, writeEnvironmentState } from '../state';
@@ -170,7 +170,11 @@ const azureCapabilityProvider: EngineCapabilityProvider = {
     return undefined;
   },
   builtinTags(model, domain, environment) {
-    return { 'forge-app': model.name, 'forge-domain': domain.name, 'forge-environment': environment };
+    return builtinTagsFor(
+      { app: 'forge-app', domain: 'forge-domain', environment: 'forge-environment' },
+      model.tags,
+      { app: model.name, domain: domain.name, environment },
+    );
   },
 };
 

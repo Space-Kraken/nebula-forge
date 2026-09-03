@@ -513,6 +513,29 @@ describe('edge: api behind the distribution, cors, custom domains', () => {
     );
   });
 
+  it('tags.builtin renames or disables the forge identity tags', () => {
+    const renamed = makeModel();
+    renamed.tags = { builtin: { app: 'plataforma:app' }, extra: 'x' };
+    const { stacks } = createApp(renamed, { environment: 'dev', outdir: outdir() });
+    Template.fromStack(stacks.get('processing')!).hasResourceProperties(
+      'AWS::Lambda::Function',
+      Match.objectLike({
+        Tags: Match.arrayWith([
+          { Key: 'extra', Value: 'x' },
+          { Key: 'forge:domain', Value: 'processing' },
+          { Key: 'plataforma:app', Value: 'shop' },
+        ]),
+      }),
+    );
+
+    const disabled = makeModel();
+    disabled.tags = { builtin: false };
+    const off = createApp(disabled, { environment: 'dev', outdir: outdir() });
+    const template = JSON.stringify(Template.fromStack(off.stacks.get('processing')!).toJSON());
+    expect(template).not.toContain('forge:app');
+    expect(template).not.toContain('forge:domain');
+  });
+
   it('a mounted api inherits the gateway cors as CORS_ORIGIN in its own stack', () => {
     const model: WorkspaceModel = {
       name: 'shop',

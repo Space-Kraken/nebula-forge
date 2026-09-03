@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertValidNaming,
   assertValidTags,
+  builtinTagsFor,
   configureNaming,
   defaultNamingPattern,
   loadWorkspace,
@@ -168,5 +169,36 @@ describe('unconditional physical-name limits (no naming block required)', () => 
       },
     });
     expect(() => loadWorkspace(root)).not.toThrow();
+  });
+});
+
+describe('builtin tag control (tags.builtin)', () => {
+  const defaults = { app: 'forge:app', domain: 'forge:domain', environment: 'forge:environment' };
+  const values = { app: 'shop', domain: 'billing', environment: 'dev' };
+
+  it('default: the three identity tags, unchanged', () => {
+    expect(builtinTagsFor(defaults, undefined, values)).toEqual({
+      'forge:app': 'shop',
+      'forge:domain': 'billing',
+      'forge:environment': 'dev',
+    });
+    expect(builtinTagsFor(defaults, { extra: 'x' }, values)['forge:app']).toBe('shop');
+  });
+
+  it('partial rename keeps the others; false disables all three', () => {
+    expect(builtinTagsFor(defaults, { builtin: { app: 'plataforma:app' } }, values)).toEqual({
+      'plataforma:app': 'shop',
+      'forge:domain': 'billing',
+      'forge:environment': 'dev',
+    });
+    expect(builtinTagsFor(defaults, { builtin: false }, values)).toEqual({});
+  });
+
+  it('renderTags and validation skip the reserved builtin key', () => {
+    expect(renderTags({ builtin: false, app: '{project}' }, { project: 'shop', module: 'b', env: 'dev' })).toEqual({
+      app: 'shop',
+    });
+    expect(() => assertValidTags({ builtin: { app: 'x' }, a: 'b' }, 'aws-cdk')).not.toThrow();
+    expect(() => assertValidTags({ builtin: { app: 'bad/key' } }, 'azure-terraform')).toThrow(/Azure rejects/);
   });
 });

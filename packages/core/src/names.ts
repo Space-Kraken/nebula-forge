@@ -103,24 +103,78 @@ export function resourceNameFor(
   });
 }
 
+/**
+ * The reserved "builtin" key inside forge.json "tags": false disables
+ * forge's own identity tags; a partial map renames them (values unchanged).
+ */
+export type BuiltinTagOverride = false | { app?: string; domain?: string; environment?: string };
+
+/** forge.json "tags": custom key→value pairs plus the reserved "builtin" key. */
+export interface TagsConfig {
+  [key: string]: string | BuiltinTagOverride | undefined;
+  builtin?: BuiltinTagOverride;
+}
+
+/** Custom tag entries only (the reserved "builtin" key filtered out). */
+function customTagEntries(tags: TagsConfig | undefined): [string, string][] {
+  return Object.entries(tags ?? {}).filter(
+    (entry): entry is [string, string] => entry[0] !== 'builtin' && typeof entry[1] === 'string',
+  );
+}
+
 /** Renders workspace tag values ({project}/{module}/{env}) for one stack. */
 export function renderTags(
-  tags: Record<string, string> | undefined,
+  tags: TagsConfig | undefined,
   dims: { project: string; module: string; env: string },
 ): Record<string, string> {
   const rendered: Record<string, string> = {};
-  for (const [key, value] of Object.entries(tags ?? {})) {
+  for (const [key, value] of customTagEntries(tags)) {
     rendered[key] = renderTemplate(value, dims);
   }
   return rendered;
+}
+
+/**
+ * forge's identity tags for one domain stack, honoring tags.builtin.
+ * Engines pass their historic default KEY names (aws "forge:app"…, azure
+ * "forge-app"…) so absent config stays byte-identical; a rename map applies
+ * to both engines, false disables all three.
+ */
+export function builtinTagsFor(
+  defaults: { app: string; domain: string; environment: string },
+  tags: TagsConfig | undefined,
+  values: { app: string; domain: string; environment: string },
+): Record<string, string> {
+  const override = tags?.builtin;
+  if (override === false) return {};
+  const keys = { ...defaults, ...(typeof override === 'object' ? override : {}) };
+  return { [keys.app]: values.app, [keys.domain]: values.domain, [keys.environment]: values.environment };
 }
 
 /** Azure forbids these characters in tag keys; AWS is laxer. */
 const AZURE_TAG_KEY_FORBIDDEN = /[<>%&\\?/]/;
 
 /** Load-time validation of forge.json "tags" against provider limits. */
-export function assertValidTags(tags: Record<string, string> | undefined, engine: string): void {
-  for (const [key, value] of Object.entries(tags ?? {})) {
+export function assertValidTags(tags: TagsConfig | undefined, engine: string): void {
+  const override = tags?.builtin;
+  if (typeof override === 'object' && override !== null) {
+    for (const renamed of Object.values(override)) {
+      if (typeof renamed !== 'string') continue;
+      if (renamed.length === 0 || renamed.length > 128) {
+        throw new ForgeError(
+          `forge.json tags.builtin renames a tag to "${renamed}", which is not a valid tag key`,
+          'Renamed builtin tag keys follow the same limits as any tag key (1-128 characters).',
+        );
+      }
+      if (engine === 'azure-terraform' && AZURE_TAG_KEY_FORBIDDEN.test(renamed)) {
+        throw new ForgeError(
+          `forge.json tags.builtin renames a tag to "${renamed}", which Azure rejects`,
+          'Azure tag keys cannot contain < > % & \\ ? or /.',
+        );
+      }
+    }
+  }
+  for (const [key, value] of customTagEntries(tags)) {
     if (key.length > 128) {
       throw new ForgeError(
         `forge.json tags: key "${key.slice(0, 32)}…" exceeds 128 characters`,

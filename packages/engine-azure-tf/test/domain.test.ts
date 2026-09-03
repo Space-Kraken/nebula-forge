@@ -198,6 +198,22 @@ describe('synthesizeDomain', () => {
     expect(taggedResources.azurerm_servicebus_queue.worker_queue.tags).toBeUndefined();
   });
 
+  it('tags.builtin renames or disables the forge identity tags on the resource group', () => {
+    const renamed = makeModel();
+    renamed.tags = { builtin: { app: 'org:app' } };
+    const doc1 = synthesizeDomain(renamed, 'orders', 'dev');
+    const rg1 = (doc1.resource as Record<string, Record<string, any>>).azurerm_resource_group.domain;
+    expect(rg1.tags['org:app']).toBe('shop');
+    expect(rg1.tags['forge-domain']).toBe('orders');
+    expect(rg1.tags['forge-app']).toBeUndefined();
+
+    const disabled = makeModel();
+    disabled.tags = { builtin: false };
+    const doc2 = synthesizeDomain(disabled, 'orders', 'dev');
+    const rg2 = (doc2.resource as Record<string, Record<string, any>>).azurerm_resource_group.domain;
+    expect(rg2.tags).toEqual({});
+  });
+
   it('rejects component packs until azure builders exist', () => {
     const model = makeModel();
     model.domains[1].packComponents = [

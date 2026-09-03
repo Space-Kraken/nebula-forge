@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { ForgeError } from './errors';
-import type { NamingConfig } from './names';
+import type { NamingConfig, TagsConfig } from './names';
 import { conventionsSchema } from './schema';
 
 /**
@@ -14,7 +14,7 @@ import { conventionsSchema } from './schema';
 
 export interface ConventionSet {
   naming?: NamingConfig;
-  tags?: Record<string, string>;
+  tags?: TagsConfig;
 }
 
 export interface ResolvedConventions extends ConventionSet {
@@ -56,7 +56,7 @@ export function resolveConventions(
     conventions?: string;
     overrides?: ConventionSet;
     naming?: NamingConfig;
-    tags?: Record<string, string>;
+    tags?: TagsConfig;
   },
   root: string,
 ): ResolvedConventions {

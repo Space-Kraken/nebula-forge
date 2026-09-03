@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ForgeError, FUNCTION_LIKE_TYPES, resourceNameFor, stackNameFor } from '@forgecli/core';
+import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, resourceNameFor, stackNameFor } from '@forgecli/core';
 import type { EngineCapabilityProvider, WorkspaceModel } from '@forgecli/core';
 import { runInWorkspace, runInWorkspaceRetrying } from '../proc';
 import { writeCredentialSetting } from '../state';
@@ -154,7 +154,11 @@ const awsCapabilityProvider: EngineCapabilityProvider = {
     return undefined;
   },
   builtinTags(model, domain, environment) {
-    return { 'forge:app': model.name, 'forge:domain': domain.name, 'forge:environment': environment };
+    return builtinTagsFor(
+      { app: 'forge:app', domain: 'forge:domain', environment: 'forge:environment' },
+      model.tags,
+      { app: model.name, domain: domain.name, environment },
+    );
   },
 };
 

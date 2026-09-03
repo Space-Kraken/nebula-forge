@@ -1,5 +1,6 @@
 import {
   bindingEnvVarFor,
+  builtinTagsFor,
   configureNaming,
   ForgeError,
   renderTags,
@@ -133,7 +134,11 @@ export function synthesizeDomain(
   const rg = addResource(doc, 'azurerm_resource_group', 'domain', {
     name: resourceGroupName(model.name, domain.name, environment),
     location: ctx.region,
-    tags: { 'forge-app': model.name, 'forge-domain': domain.name, 'forge-environment': environment },
+    tags: builtinTagsFor(
+      { app: 'forge-app', domain: 'forge-domain', environment: 'forge-environment' },
+      model.tags,
+      { app: model.name, domain: domain.name, environment },
+    ),
   });
   const rgName = ref(rg, 'name');
   const rgLocation = ref(rg, 'location');

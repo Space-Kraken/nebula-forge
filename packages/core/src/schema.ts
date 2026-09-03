@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { NAME_PATTERN } from './names';
+import type { TagsConfig } from './names';
 import { routePathIssues } from './routes';
 
 export const nameSchema = z
@@ -67,11 +68,27 @@ export const namingSchema = z
   })
   .strict();
 
+/** tags.builtin: false disables forge's identity tags, a map renames them. */
+export const builtinTagOverrideSchema = z.union([
+  z.literal(false),
+  z
+    .object({
+      app: z.string().min(1).optional(),
+      domain: z.string().min(1).optional(),
+      environment: z.string().min(1).optional(),
+    })
+    .strict(),
+]);
+
 /**
  * Tags applied to every resource by both engines. Values accept {project},
- * {module} and {env}.
+ * {module} and {env}. The key "builtin" is RESERVED: it controls forge's own
+ * forge:app/forge:domain/forge:environment tags (false = off, map = rename)
+ * — a literal tag named "builtin" is therefore not expressible.
  */
-export const tagsSchema = z.record(z.string().min(1), z.string().min(1));
+export const tagsSchema: z.ZodType<TagsConfig> = z
+  .object({ builtin: builtinTagOverrideSchema.optional() })
+  .catchall(z.string().min(1)) as unknown as z.ZodType<TagsConfig>;
 
 /** What a conventions package (forge.json "conventions") exports. */
 export const conventionsSchema = z

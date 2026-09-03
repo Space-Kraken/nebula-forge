@@ -175,7 +175,12 @@ o cambios de semántica sí.
   },                                 // ⚠️ cambiarlo en un workspace desplegado REEMPLAZA recursos
   "tags": {                          // opcional: tags en todos los recursos (ambos engines)
     "cost-center": "cc-1234",
-    "app": "{project}", "stage": "{env}"   // valores admiten {project} {module} {env}
+    "app": "{project}", "stage": "{env}",  // valores admiten {project} {module} {env}
+    "builtin": { "app": "plataforma:app" } // clave RESERVADA: renombra los tags propios de forge
+                                     // (forge:app/forge:domain/forge:environment) o `false` los apaga.
+                                     // Antes de apagarlos por estética: forge:domain es la base natural
+                                     // de envolventes de costo/presupuesto POR DOMINIO — es de los tags
+                                     // más útiles que tendrás
   },
   "environments": {
     "dev":  { "region": "us-east-1", "profile": "mi-perfil" },

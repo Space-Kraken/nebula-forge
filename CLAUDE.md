@@ -137,7 +137,12 @@ userPoolName — addressed by id/Ref) keep the omit-when-long fallback via
 exported model. `tags` values render
 {project}/{module}/{env} ({name} is per-resource → rejected); aws applies
 them via `Tags.of(stack)`, azure via a TAGGABLE_TF_TYPES whitelist (role
-assignments/queues accept none). Azure component names: the pattern feeds
+assignments/queues accept none). The `builtin` key inside `tags` is RESERVED
+(a literal tag named "builtin" is not expressible): false disables forge's
+identity tags, a partial map renames them — single helper `builtinTagsFor`
+in core/names.ts, consumed by both engines AND the cli adapters'
+capability providers (defaults stay engine-styled: forge:app vs forge-app).
+Azure component names: the pattern feeds
 `globalName('fn', [resourceNameFor(...)])` — the hashed helper still owns
 shortness/uniqueness; domain-level shared infra (rg-/st/cos-/sb-) keeps its
 internal hashed names in v1. `bindingEnvVarFor` and everything generated code
