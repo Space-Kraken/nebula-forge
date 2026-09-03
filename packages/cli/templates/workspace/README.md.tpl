@@ -56,9 +56,25 @@ conditions, mandatory tags), declare it in `forge.json` and forge conforms:
 Every name is rendered and validated when the workspace loads (charset,
 length, collisions), and tags are applied to every resource by the engine.
 
-> ⚠️ **Names are identity.** Changing `naming` on an already-deployed
-> workspace REPLACES resources — for tables and buckets that means data loss.
-> Pick the convention before the first deploy and treat it as frozen.
+When several projects share one contract, publish it as a package and
+inherit it instead of copying it — the rule lives once:
+
+```jsonc
+{
+  "conventions": "@your-org/forge-conventions"  // exports { naming?, tags? }
+}
+```
+
+With `conventions` set, inline `naming`/`tags` become a load error; deliberate
+deviations go under `"overrides": { … }` and load with a visible warning. The
+contract's version pin is the package's version in `package.json` (pin it
+exactly): **bumping the conventions package is a migration event** — names are
+identity, so a changed pattern replaces resources.
+
+> ⚠️ **Names are identity.** Changing `naming` (or the conventions package
+> version) on an already-deployed workspace REPLACES resources — for tables
+> and buckets that means data loss. Pick the convention before the first
+> deploy and treat it as frozen.
 
 ## Lambda conventions (hexagonal + fusion)
 

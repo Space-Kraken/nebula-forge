@@ -15,6 +15,7 @@ import {
   WorkspaceManifest,
   WorkspaceModel,
 } from './model';
+import { resolveConventions } from './conventions';
 import { loadPacks, packComponentDefinition, packComponentTypes } from './packs';
 import type { PackComponentSpec } from './packs';
 import { assertValidNaming, assertValidTags, configureNaming, resourceNameFor } from './names';
@@ -90,12 +91,21 @@ export function loadWorkspace(startDir: string): WorkspaceModel {
     path.join(root, WORKSPACE_MANIFEST),
   );
   loadPacks(root, manifest.packs);
-  // The org naming/tag contract activates BEFORE validation so collisions,
-  // charsets and lengths are checked against the names that will actually ship.
-  assertValidNaming(manifest.naming);
-  assertValidTags(manifest.tags, manifest.engine);
-  configureNaming(manifest.naming);
-  const model: WorkspaceModel = { ...manifest, root, domains: loadDomains(root) };
+  // The naming/tag contract (inline or inherited via "conventions") resolves
+  // and activates BEFORE validation so collisions, charsets and lengths are
+  // checked against the names that will actually ship.
+  const conventions = resolveConventions(manifest, root);
+  assertValidNaming(conventions.naming);
+  assertValidTags(conventions.tags, manifest.engine);
+  configureNaming(conventions.naming);
+  const model: WorkspaceModel = {
+    ...manifest,
+    naming: conventions.naming,
+    tags: conventions.tags,
+    root,
+    domains: loadDomains(root),
+    warnings: conventions.warnings,
+  };
   validateModel(model);
   return model;
 }

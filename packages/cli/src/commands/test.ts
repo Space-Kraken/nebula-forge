@@ -22,7 +22,7 @@ export default class Test extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(Test);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
 
     if (args.module && !model.domains.some((domain) => domain.name === args.module)) {
       throw new ForgeError(

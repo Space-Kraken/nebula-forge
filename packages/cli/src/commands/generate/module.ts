@@ -23,7 +23,7 @@ export default class GenerateModule extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(GenerateModule);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
 
     let name = args.name;
     if (!name) {

@@ -108,7 +108,7 @@ export default class GenerateComponent extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(GenerateComponent);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const interactive = canPrompt(flags['no-interactive']);
 
     // Wizard mode: anything essential that is missing gets asked on a terminal.

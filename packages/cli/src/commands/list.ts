@@ -7,7 +7,7 @@ export default class List extends BaseCommand {
   static examples = ['forge list'];
 
   async run(): Promise<void> {
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
 
     this.log(`${model.name} (engine: ${model.engine})`);
     const environments = Object.entries(model.environments)

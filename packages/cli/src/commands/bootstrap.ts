@@ -16,7 +16,7 @@ export default class Bootstrap extends BaseCommand {
 
   async run(): Promise<void> {
     const { flags } = await this.parse(Bootstrap);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const environment = resolveEnvironment(model, flags.env);
     const code = engineFor(model.engine).bootstrap(model, environment, (message) => this.log(message));
     this.exit(code);

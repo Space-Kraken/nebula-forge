@@ -1,3 +1,4 @@
+export * from './conventions';
 export * from './docs';
 export * from './engine';
 export * from './errors';

@@ -106,9 +106,17 @@ in place. `function` components may also declare `config.subscriptions`
 (EventBridge rule → Lambda direct); queue-worker remains the recommended
 target for reliable processing (retries + DLQ).
 
-## Org naming + tags (forge.json "naming"/"tags")
+## Org naming + tags (forge.json "naming"/"tags"/"conventions")
 
-The org declares the contract; forge conforms. `naming.pattern` is a template
+`conventions` inherits the contract from a package (npm name or "./path",
+createRequire like packs — see `core/src/conventions.ts`) exporting
+{naming?, tags?}. With it set, inline naming/tags are a LOAD ERROR; explicit
+deviations live under `overrides` (naming replaces whole, tags merge per
+key) and surface as `model.warnings` — commands print them via
+`BaseCommand.loadModel()` (all commands load through it, never bare
+loadWorkspace). Version pin = the package's version in package.json;
+bumping it is a migration event. The org declares the contract; forge
+conforms. `naming.pattern` is a template
 over the FIXED vocabulary {project}/{module}/{name}/{env} (exactly
 resourceNameFor's dimensions — never add tokens); `separator` re-joins the
 default dimensions. Resolution lives ONCE in `core/src/names.ts`: a

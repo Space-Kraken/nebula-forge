@@ -21,7 +21,7 @@ export default class Deploy extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(Deploy);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const environment = resolveEnvironment(model, flags.env);
     const domains = resolveDomains(model, args.module, { all: flags.all, requireExplicitAll: true });
 

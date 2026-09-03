@@ -35,7 +35,7 @@ export default class Detach extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(Detach);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const domain = model.domains.find((candidate) => candidate.name === flags.module);
     const component = domain?.components.find((candidate) => candidate.name === args.component);
     if (!domain || !component) {

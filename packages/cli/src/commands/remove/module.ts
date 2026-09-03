@@ -22,7 +22,7 @@ export default class RemoveModule extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(RemoveModule);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
 
     if (!flags.yes) {
       if (!canPrompt(false)) {

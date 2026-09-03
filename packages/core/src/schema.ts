@@ -34,6 +34,34 @@ export const environmentSchema = z
 
 export const runtimeSchema = z.enum(['ts-fusion', 'ts']);
 
+/**
+ * Org-defined naming convention. pattern: template over {project},
+ * {module}, {name}, {env}; separator joins the default dimensions when no
+ * pattern is given. Absent = forge's historic convention, byte for byte.
+ * WARNING: names are identity — changing this on a DEPLOYED workspace
+ * replaces resources (tables/buckets lose data).
+ */
+export const namingSchema = z
+  .object({
+    pattern: z.string().min(1).optional(),
+    separator: z.string().min(1).max(5).optional(),
+  })
+  .strict();
+
+/**
+ * Tags applied to every resource by both engines. Values accept {project},
+ * {module} and {env}.
+ */
+export const tagsSchema = z.record(z.string().min(1), z.string().min(1));
+
+/** What a conventions package (forge.json "conventions") exports. */
+export const conventionsSchema = z
+  .object({
+    naming: namingSchema.optional(),
+    tags: tagsSchema.optional(),
+  })
+  .strict();
+
 export const workspaceManifestSchema = z
   .object({
     name: nameSchema,
@@ -50,24 +78,24 @@ export const workspaceManifestSchema = z
     /** Component packs: npm package names or relative paths ("./packs/x"). */
     packs: z.array(z.string()).optional(),
     /**
-     * Org-defined naming convention. pattern: template over {project},
-     * {module}, {name}, {env}; separator joins the default dimensions when no
-     * pattern is given. Absent = forge's historic convention, byte for byte.
-     * WARNING: names are identity — changing this on a DEPLOYED workspace
-     * replaces resources (tables/buckets lose data).
+     * Inherited org conventions: an npm package name or local path (same
+     * resolution as packs) exporting { naming?, tags? }. With this set,
+     * inline naming/tags are a LOAD ERROR — deviations go under "overrides",
+     * which loads with a visible warning. The contract's version pin is the
+     * package's version in package.json: bumping it is a MIGRATION EVENT
+     * (names are identity), not a casual update.
      */
-    naming: z
+    conventions: z.string().min(1).optional(),
+    /** Explicit, greppable deviations from the inherited conventions. */
+    overrides: z
       .object({
-        pattern: z.string().min(1).optional(),
-        separator: z.string().min(1).max(5).optional(),
+        naming: namingSchema.optional(),
+        tags: tagsSchema.optional(),
       })
       .strict()
       .optional(),
-    /**
-     * Tags applied to every resource by both engines. Values accept
-     * {project}, {module} and {env}.
-     */
-    tags: z.record(z.string().min(1), z.string().min(1)).optional(),
+    naming: namingSchema.optional(),
+    tags: tagsSchema.optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {

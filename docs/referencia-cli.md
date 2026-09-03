@@ -150,6 +150,12 @@ nunca queda una referencia colgante.
   "defaultEnvironment": "dev",
   "defaults": { "runtime": "ts" },  // opcional: runtime por defecto
   "packs": ["forge-pack-secret"],   // opcional: component packs (npm o "./ruta.js")
+  "conventions": "@acme/forge-conventions",  // opcional: contrato heredado (paquete npm o "./ruta.js")
+                                     // exporta { naming?, tags? }; su versión en package.json ES el pin
+                                     // del contrato — subirla es un EVENTO DE MIGRACIÓN, no un update casual
+  "overrides": {                     // desviaciones explícitas del contrato heredado (cargan con warning)
+    "tags": { "extra": "valor" }     // tags se mergean por clave; naming reemplaza completo
+  },                                 // con "conventions", naming/tags inline (fuera de overrides) = ERROR
   "naming": {                        // opcional: convención de nombres de la org
     "pattern": "corp-{project}-{env}-{module}-{name}",  // tokens fijos: {project} {module} {name} {env}
     "separator": "_"                 // alternativa ligera: solo cambia el separador

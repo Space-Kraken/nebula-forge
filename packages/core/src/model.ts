@@ -38,6 +38,8 @@ export interface DomainSpec extends DomainManifest {
 export interface WorkspaceModel extends WorkspaceManifest {
   root: string;
   domains: DomainSpec[];
+  /** Load-time warnings the CLI surfaces (e.g. convention overrides in effect). */
+  warnings?: string[];
 }
 
 /** Component types that run code and may therefore declare bindings. */

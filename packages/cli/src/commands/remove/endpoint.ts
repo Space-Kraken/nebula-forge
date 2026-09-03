@@ -24,7 +24,7 @@ export default class RemoveEndpoint extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(RemoveEndpoint);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const domain = model.domains.find((candidate) => candidate.name === flags.module);
     if (!domain) {
       throw new ForgeError(

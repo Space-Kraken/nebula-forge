@@ -17,7 +17,7 @@ export default class Docs extends BaseCommand {
 
   async run(): Promise<void> {
     const { flags } = await this.parse(Docs);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
 
     if (flags.print) {
       this.log(renderArchitectureMermaid(model));

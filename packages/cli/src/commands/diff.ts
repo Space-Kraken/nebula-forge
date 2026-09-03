@@ -19,7 +19,7 @@ export default class Diff extends BaseCommand {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(Diff);
-    const model = loadWorkspace(process.cwd());
+    const model = this.loadModel();
     const environment = resolveEnvironment(model, flags.env);
     const domains = resolveDomains(model, args.module, { all: true, requireExplicitAll: false });
     this.exit(await engineFor(model.engine).diff(model, environment, domains));
