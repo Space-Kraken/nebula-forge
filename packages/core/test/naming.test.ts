@@ -124,3 +124,49 @@ describe('loadWorkspace with an org naming contract', () => {
     expect(() => loadWorkspace(root)).toThrow(/unknown token \{team\}/);
   });
 });
+
+describe('unconditional physical-name limits (no naming block required)', () => {
+  it('rejects function-like names over 64 chars even with the default convention', () => {
+    const longName = `big-${'x'.repeat(60)}`;
+    const root = makeWorkspace({
+      'forge.json': manifest(),
+      'domains/billing/domain.json': { name: 'billing' },
+      [`domains/billing/components/${longName}/component.json`]: { name: longName, type: 'http-api' },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/over the 64-character function name limit/);
+  });
+
+  it('rejects event-bus names over the EventBridge limit', () => {
+    // the long dimension lives in the project name — component dirs stay
+    // short so Windows MAX_PATH is not the thing being tested
+    const root = makeWorkspace({
+      'forge.json': manifest({ name: `p${'x'.repeat(250)}` }),
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/events/component.json': { name: 'events', type: 'event-bus' },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/EventBridge bus name limit/);
+  });
+
+  it('rejects azure event-bus names over the Event Grid topic limit', () => {
+    const root = makeWorkspace({
+      'forge.json': manifest({ engine: 'azure-terraform', name: `p${'x'.repeat(45)}` }),
+      'domains/platform/domain.json': { name: 'platform' },
+      'domains/platform/components/events/component.json': { name: 'events', type: 'event-bus' },
+    });
+    expect(() => loadWorkspace(root)).toThrow(/Event Grid topic name limit/);
+  });
+
+  it('decorative names (tables, rest apis) are NOT length-limited at load', () => {
+    const longName = `tbl-${'x'.repeat(70)}`;
+    const root = makeWorkspace({
+      'forge.json': manifest(),
+      'domains/billing/domain.json': { name: 'billing' },
+      [`domains/billing/components/${longName}/component.json`]: {
+        name: longName,
+        type: 'table',
+        config: { partitionKey: { name: 'id' } },
+      },
+    });
+    expect(() => loadWorkspace(root)).not.toThrow();
+  });
+});
