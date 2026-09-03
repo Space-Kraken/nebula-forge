@@ -5,8 +5,8 @@
   "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
   "packageManager": "pnpm@11.23.0",
   "scripts": {
-    "build": "tsc -b packages/cli packages/engine-cdk packages/engine-azure-tf",
-    "clean": "tsc -b packages/cli packages/engine-cdk packages/engine-azure-tf --clean",
+    "build": "tsc -b packages/cli packages/engine-cdk packages/engine-azure-tf packages/mcp",
+    "clean": "tsc -b packages/cli packages/engine-cdk packages/engine-azure-tf packages/mcp --clean",
     "test": "pnpm -r --if-present run test"
   },
   "devDependencies": {

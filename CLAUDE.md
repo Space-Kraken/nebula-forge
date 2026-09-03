@@ -222,6 +222,19 @@ duplicate it.
   precompiling. Keep extensions inside the domain stack; cross-stack refs
   stay forbidden.
 
+## MCP server (packages/mcp)
+
+`@forgecli/mcp` (private, unpublished) exposes forge's semantics as MCP
+tools over stdio for agentic executors. The PUBLIC contract is the tools —
+cli/src/lib stays internal and free to change (mcp deep-imports
+`@forgecli/cli/dist/lib/*`, fine inside the monorepo; no semver promise on
+those APIs). Handlers live in src/tools.ts as pure functions over an
+explicit workspaceRoot (tests exercise them directly, never the transport);
+src/server.ts only wires them into McpServer. Every tool runs the
+non-interactive path and keeps the CLI's transactionality (a failing
+generate_component rolls back the scaffold). ForgeErrors surface as
+message + ↳ hint with isError.
+
 ## Conventions
 
 - Package manager is pnpm (never npm); esbuild build scripts approved via
