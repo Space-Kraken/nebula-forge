@@ -18,6 +18,25 @@ export const environmentSchema = z
     /** Marks the environment as production (stateful resources are retained on delete). Defaults to name === "prod". */
     production: z.boolean().optional(),
     /**
+     * Deployment identity (aws-cdk only): points synth/deploy at a CUSTOM
+     * cdk bootstrap — the landing-zone contract. forge never touches
+     * credentials; CDK assumes the bootstrap's roles as always.
+     */
+    deploy: z
+      .object({
+        /** Bootstrap qualifier (also configured on the synthesizer so deploy assumes THAT bootstrap's roles). */
+        qualifier: z
+          .string()
+          .regex(/^[a-z0-9-]{1,10}$/, 'up to 10 chars: lowercase letters, digits, hyphens')
+          .optional(),
+        /** NAME of the managed policy used as permissions boundary for the bootstrap roles. */
+        permissionsBoundary: z.string().min(1).optional(),
+        /** Managed policy ARNs granted to the CloudFormation execution role. */
+        executionPolicies: z.array(z.string().min(1)).nonempty().optional(),
+      })
+      .strict()
+      .optional(),
+    /**
      * Remote state backend, written by `forge bootstrap` (azure-terraform
      * engine; aws-cdk keeps state in CloudFormation and ignores it).
      */

@@ -235,6 +235,16 @@ export function resolveBinding(
 }
 
 function validateModel(model: WorkspaceModel): void {
+  if (model.engine === 'azure-terraform') {
+    for (const [envName, envSpec] of Object.entries(model.environments)) {
+      if (envSpec.deploy) {
+        throw new ForgeError(
+          `Environment "${envName}" declares a "deploy" block, which the azure-terraform engine does not support`,
+          'deploy maps to cdk bootstrap identities (qualifier, permissions boundary). On Azure, forge bootstrap manages the state backend and deployment identity comes from az login / ARM_* variables.',
+        );
+      }
+    }
+  }
   validatePhysicalNames(model);
   for (const domain of model.domains) {
     for (const component of domain.components) {

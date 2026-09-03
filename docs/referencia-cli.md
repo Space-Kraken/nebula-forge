@@ -184,6 +184,11 @@ o cambios de semántica sí.
       "account": "111122223333",     // AWS: cuenta · Azure: subscription id
       "profile": "mi-perfil-prod",
       "production": true,            // retiene recursos con estado al borrar
+      "deploy": {                    // opcional (aws-cdk): identidad de despliegue de la landing zone
+        "qualifier": "corp1",        // synth+deploy asumen los roles de ESE cdk bootstrap
+        "permissionsBoundary": "org-boundary",          // NOMBRE de la managed policy
+        "executionPolicies": ["arn:aws:iam::…:policy/Deploy"]  // rol de ejecución de CloudFormation
+      },                             // forge bootstrap pasa esto a cdk bootstrap; azure-tf lo rechaza
       "state": { /* backend remoto: lo escribe forge bootstrap (Azure) */ }
     }
   }

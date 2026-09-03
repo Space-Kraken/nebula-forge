@@ -1,4 +1,4 @@
-import { App } from 'aws-cdk-lib';
+import { App, DefaultStackSynthesizer } from 'aws-cdk-lib';
 import { configureNaming, ForgeError, stackNameFor } from '@forgecli/core';
 import type { Engine, SynthOptions, WorkspaceModel } from '@forgecli/core';
 import { DomainStack } from './domain-stack';
@@ -35,6 +35,11 @@ export function createApp(model: WorkspaceModel, options: SynthOptions): CreateA
     ? model.domains.filter((domain) => options.domains!.includes(domain.name))
     : model.domains;
 
+  // Custom deployment identity (environments.<env>.deploy): the qualifier
+  // points every stack at THAT cdk bootstrap, so `cdk deploy` assumes its
+  // roles (with the org's permissions boundary / execution policies) — pure
+  // plumbing, forge never touches credentials.
+  const qualifier = envSpec.deploy?.qualifier;
   const app = new App({ outdir: options.outdir });
   const stacks = new Map<string, DomainStack>();
   for (const domain of selected) {
@@ -46,6 +51,7 @@ export function createApp(model: WorkspaceModel, options: SynthOptions): CreateA
         domain,
         environment: options.environment,
         description: domain.description,
+        synthesizer: qualifier ? new DefaultStackSynthesizer({ qualifier }) : undefined,
         env: envSpec.account
           ? { account: envSpec.account, region: envSpec.region }
           : { region: envSpec.region },

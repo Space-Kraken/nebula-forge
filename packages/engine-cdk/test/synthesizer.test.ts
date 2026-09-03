@@ -581,6 +581,23 @@ describe('org naming and tags', () => {
     expect(JSON.stringify(users.toJSON())).not.toContain('Fn::ImportValue');
   });
 
+  it('deploy.qualifier points every stack at the custom bootstrap', () => {
+    const model = makeModel();
+    model.environments.dev.deploy = { qualifier: 'corp1' };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('processing')!).toJSON() as {
+      Parameters?: Record<string, { Default?: string }>;
+    };
+    expect(template.Parameters?.BootstrapVersion?.Default).toBe('/cdk-bootstrap/corp1/version');
+
+    // without the block: the default bootstrap, unchanged
+    const plain = createApp(makeModel(), { environment: 'dev', outdir: outdir() });
+    const plainTemplate = Template.fromStack(plain.stacks.get('processing')!).toJSON() as {
+      Parameters?: Record<string, { Default?: string }>;
+    };
+    expect(plainTemplate.Parameters?.BootstrapVersion?.Default).toBe('/cdk-bootstrap/hnb659fds/version');
+  });
+
   it('applies workspace tags to every resource, with {project}/{env} rendered', () => {
     const model = makeModel();
     model.tags = { 'cost-center': 'cc-1234', app: '{project}', stage: '{env}' };

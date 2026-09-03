@@ -76,6 +76,33 @@ identity, so a changed pattern replaces resources.
 > and buckets that means data loss. Pick the convention before the first
 > deploy and treat it as frozen.
 
+## Deployment identity & CI federation (optional)
+
+When a landing zone provisions a custom CDK bootstrap (name-prefixed roles,
+permissions boundary), point the environment at it:
+
+```jsonc
+{
+  "environments": {
+    "prod": {
+      "region": "us-east-1",
+      "deploy": {
+        "qualifier": "corp1",
+        "permissionsBoundary": "org-boundary",
+        "executionPolicies": ["arn:aws:iam::111122223333:policy/OrgDeploy"]
+      }
+    }
+  }
+}
+```
+
+`forge bootstrap` passes these to `cdk bootstrap`, and synth configures the
+qualifier so `forge deploy` assumes THAT bootstrap's roles. forge never
+handles credentials itself: in CI, federate with OIDC (e.g. GitHub Actions
+`aws-actions/configure-aws-credentials` assuming a role whose trust policy
+allows your repo) and run `forge deploy` — CDK picks up the ambient
+credentials and assumes its bootstrap roles from there.
+
 ## Lambda conventions (hexagonal + fusion)
 
 TypeScript lambdas follow hexagonal architecture on

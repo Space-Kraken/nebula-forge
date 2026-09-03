@@ -144,6 +144,17 @@ internal hashed names in v1. `bindingEnvVarFor` and everything generated code
 references is OUT of scope. Names are identity: changing `naming` on a
 deployed workspace REPLACES resources (scaffolded README + AGENTS.md warn).
 
+## Deployment identity (environments.<env>.deploy — aws-cdk only)
+
+Plumbing, never credentials: `qualifier` goes to the per-stack
+DefaultStackSynthesizer in createApp (deploy assumes THAT bootstrap's roles)
+and `bootstrapArgs` in cli/engines/aws-cdk.ts appends
+--qualifier/--custom-permissions-boundary (policy NAME)/
+--cloudformation-execution-policies (repeated) to cdk bootstrap. Without the
+block, argv and synthesizer are byte-identical to before (tested).
+azure-terraform rejects the block at load. Zero STS calls — OIDC federation
+is documented in the scaffolded README, not implemented.
+
 ## Model export + capability manifests (`forge model --json`)
 
 `core/src/export.ts` renders the versioned machine-readable contract

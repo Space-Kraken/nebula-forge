@@ -40,6 +40,25 @@ function stackNames(model: WorkspaceModel, environment: string, domains: string[
   return domains.map((domain) => stackNameFor(model.name, domain, environment));
 }
 
+/**
+ * `cdk bootstrap` argv, honoring the environment's deploy identity block:
+ * qualifier, permissions boundary (managed policy NAME) and CloudFormation
+ * execution policies. Without the block, byte-identical to the plain call.
+ * Exported for tests.
+ */
+export function bootstrapArgs(model: WorkspaceModel, environment: string): string[] {
+  const envSpec = model.environments[environment];
+  const args = ['cdk', 'bootstrap'];
+  if (envSpec.account) args.push(`aws://${envSpec.account}/${envSpec.region}`);
+  const deploy = envSpec.deploy;
+  if (deploy?.qualifier) args.push('--qualifier', deploy.qualifier);
+  if (deploy?.permissionsBoundary) args.push('--custom-permissions-boundary', deploy.permissionsBoundary);
+  for (const policy of deploy?.executionPolicies ?? []) {
+    args.push('--cloudformation-execution-policies', policy);
+  }
+  return args;
+}
+
 /** Deploying an unbuilt static-site would ship an empty 403-ing site — refuse. */
 export function assertStaticSourcesBuilt(model: WorkspaceModel, domains: string[]): void {
   for (const domain of model.domains) {
@@ -156,9 +175,8 @@ export const awsCdkEngine: EngineAdapter = {
     // CDK owns its state (CloudFormation); bootstrap provisions the assets
     // bucket and roles cdk deploy needs, once per account/region.
     const envSpec = model.environments[environment];
-    const target = envSpec.account ? [`aws://${envSpec.account}/${envSpec.region}`] : [];
     log(`Bootstrapping AWS environment "${environment}" (region ${envSpec.region}) via cdk bootstrap…`);
-    return runInWorkspace(model.root, 'npx', ['cdk', 'bootstrap', ...target], environment, {
+    return runInWorkspace(model.root, 'npx', bootstrapArgs(model, environment), environment, {
       CDK_DEFAULT_REGION: envSpec.region,
       ...profileEnv(model, environment),
     });
