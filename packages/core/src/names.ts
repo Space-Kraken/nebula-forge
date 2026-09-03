@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ForgeError } from './errors';
 import { packComponentDefinition } from './packs';
 
@@ -146,6 +147,23 @@ export function assertValidTags(tags: Record<string, string> | undefined, engine
       );
     }
   }
+}
+
+/** Deterministic 10-hex-char suffix that absorbs truncation without losing uniqueness. */
+export function hashSuffix(...parts: string[]): string {
+  return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 10);
+}
+
+/**
+ * Globally unique kebab name with a length budget: `prefix-…parts`, hash-
+ * truncated deterministically when too long. Shared by engine-azure-tf (its
+ * short global names) and the model export, so both always agree.
+ */
+export function globalName(prefix: string, parts: string[], maxLength: number): string {
+  const name = [prefix, ...parts].join('-');
+  if (name.length <= maxLength) return name;
+  const suffix = hashSuffix(...parts);
+  return `${name.slice(0, maxLength - suffix.length - 1)}-${suffix}`.replace(/--+/g, '-');
 }
 
 /** kebab-case → PascalCase, for construct ids. */

@@ -46,9 +46,18 @@ importers:
         specifier: ^4.0.17
         version: 4.14.0
     devDependencies:
+      '@forgecli/engine-azure-tf':
+        specifier: workspace:^
+        version: link:../engine-azure-tf
+      '@forgecli/engine-cdk':
+        specifier: workspace:^
+        version: link:../engine-cdk
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
+      esbuild:
+        specifier: ^0.23.0
+        version: 0.23.1
       typescript:
         specifier: ^5.5.4
         version: 5.9.3

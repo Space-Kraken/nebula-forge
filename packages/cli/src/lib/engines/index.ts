@@ -1,5 +1,5 @@
 import { ForgeError } from '@forgecli/core';
-import type { ComponentType, Runtime, WorkspaceModel } from '@forgecli/core';
+import type { ComponentType, EngineCapabilityProvider, Runtime, WorkspaceModel } from '@forgecli/core';
 import { awsCdkEngine } from './aws-cdk';
 import { azureTerraformEngine } from './azure-terraform';
 
@@ -43,6 +43,12 @@ export interface EngineAdapter {
   defaultRuntime: Runtime;
   /** Source files scaffolded for a component of the given type and runtime. */
   componentFiles(type: ComponentType, runtime: Runtime): EngineComponentFile[];
+  /**
+   * Static engine metadata for `forge model --json`: resource types per
+   * component type, domain-shared infra, deterministic physical names and
+   * builtin tags. Anti-drift tests assert it against real synthesized output.
+   */
+  capabilities: EngineCapabilityProvider;
   synth(model: WorkspaceModel, environment: string, domains: string[]): number | Promise<number>;
   diff(model: WorkspaceModel, environment: string, domains: string[]): number | Promise<number>;
   /** Prepares the account/environment: deploy prerequisites and state management. */

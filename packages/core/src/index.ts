@@ -1,5 +1,6 @@
 export * from './conventions';
 export * from './docs';
+export * from './export';
 export * from './engine';
 export * from './errors';
 export * from './loader';

@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ForgeError } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import { ForgeError, FUNCTION_LIKE_TYPES, globalName, resourceNameFor } from '@forgecli/core';
+import type { EngineCapabilityProvider, WorkspaceModel } from '@forgecli/core';
 import { commandAvailable, runInWorkspace } from '../proc';
 import { writeCredentialSetting, writeEnvironmentState } from '../state';
 import type { StateConfig } from '../state';
@@ -127,10 +127,58 @@ function bootstrapAzure(model: WorkspaceModel, environment: string, log: (messag
   return 0;
 }
 
+/** Terraform types each supported component MAY emit — asserted against real synth output. */
+const AZURE_CAPABILITIES: EngineCapabilityProvider['components'] = {
+  function: [
+    'azurerm_linux_function_app',
+    'azurerm_role_assignment',
+    'azurerm_eventgrid_event_subscription',
+    'azurerm_cosmosdb_sql_role_assignment',
+  ],
+  'queue-worker': [
+    'azurerm_linux_function_app',
+    'azurerm_servicebus_queue',
+    'azurerm_role_assignment',
+    'azurerm_eventgrid_event_subscription',
+    'azurerm_cosmosdb_sql_role_assignment',
+  ],
+  table: ['azurerm_cosmosdb_sql_container', 'azurerm_cosmosdb_sql_role_assignment'],
+  bucket: ['azurerm_storage_container', 'azurerm_role_assignment'],
+  topic: ['azurerm_servicebus_topic'],
+  'event-bus': ['azurerm_eventgrid_topic'],
+};
+
+const azureCapabilityProvider: EngineCapabilityProvider = {
+  components: AZURE_CAPABILITIES,
+  /** Provisioned lazily per domain when components need them. */
+  domainShared: [
+    'azurerm_resource_group',
+    'azurerm_storage_account',
+    'azurerm_cosmosdb_account',
+    'azurerm_cosmosdb_sql_database',
+    'azurerm_servicebus_namespace',
+    'azurerm_service_plan',
+  ],
+  physicalNameFor(model, domain, component, environment) {
+    if ('pack' in component) return undefined;
+    const rendered = resourceNameFor(model.name, domain.name, component.name, environment);
+    if (component.type === 'event-bus') return rendered;
+    if ((FUNCTION_LIKE_TYPES as readonly string[]).includes(component.type)) {
+      // exactly what engine-azure-tf emits: the hashed helper owns the limit
+      return globalName('fn', [rendered], 60);
+    }
+    return undefined;
+  },
+  builtinTags(model, domain, environment) {
+    return { 'forge-app': model.name, 'forge-domain': domain.name, 'forge-environment': environment };
+  },
+};
+
 export const azureTerraformEngine: EngineAdapter = {
   id: 'azure-terraform',
   enginePackage: 'engine-azure-tf',
   unsupportedTypes: ['http-api', 'static-site', 'gateway', 'auth', 'email'],
+  capabilities: azureCapabilityProvider,
   workspaceFiles: [
     { template: 'engines/azure-terraform/forge.json.tpl', target: 'forge.json' },
     { template: 'engines/azure-terraform/package.json.tpl', target: 'package.json' },
