@@ -419,3 +419,44 @@ la Lambda para que las respuestas lleven el header (los handlers generados ya
 lo hacen). `--cors "*"` abre a cualquier origen. En un gateway, el cors
 aplica a todos los apis montados. Regla mnemotécnica: **mismo origen
 (`--api`) primero; CORS es para orígenes ajenos.**
+
+## 14. Convenciones corporativas: naming y tags
+
+Cuando forge vive dentro de un marco corporativo, las convenciones no las
+define la herramienta sino la plataforma (roles de deploy con condiciones
+sobre prefijos, tags obligatorios, validadores externos). El contrato se
+declara en `forge.json` y forge conforma:
+
+```json
+{
+  "naming": { "pattern": "corp-{project}-{env}-{module}-{name}" },
+  "tags": { "cost-center": "cc-1234", "app": "{project}", "stage": "{env}" }
+}
+```
+
+- **Tokens fijos**: `{project}`, `{module}`, `{name}`, `{env}` — las mismas
+  dimensiones que forge usa hoy. Token desconocido = error al cargar, con la
+  lista válida en el hint. `separator` solo, si únicamente quieres cambiar el
+  `-`. Al ser datos declarativos (no código), el mismo forge.json lo pueden
+  leer generadores de policies IAM o validadores externos.
+- **Sin bloque = convención histórica byte a byte** — ningún workspace
+  existente cambia de nombres.
+- **Todo se valida al cargar**: forge renderiza el nombre de cada componente
+  en cada entorno y verifica charset por proveedor, longitud (límite de
+  nombre de función) y colisiones sobre los nombres YA renderizados. Un
+  pattern que omite `{module}` con dos componentes homónimos en dominios
+  distintos falla al instante, no en el deploy.
+- **Tags en todo**: aws vía tags del stack (heredan todos los recursos);
+  azure sobre cada recurso que admite tags (los role assignments y colas no
+  — forge lo sabe). Los valores admiten `{project}`, `{module}`, `{env}`;
+  `{name}` no existe aquí porque el tag es por stack, no por recurso.
+- **El nombre sigue siendo función pura del modelo**: no hay overrides por
+  recurso — el direccionamiento cross-domain (buses, mounts) depende de que
+  dos stacks calculen el mismo nombre. En Azure, la infraestructura
+  compartida por dominio (`rg-`, `st…`, `cos-…`) conserva sus nombres
+  hasheados internos; el pattern gobierna los recursos de componente.
+
+> ⚠️ **Los nombres son identidad.** Cambiar `naming` en un workspace ya
+> desplegado reemplaza los recursos — en tablas y buckets eso es pérdida de
+> datos. Elige la convención antes del primer deploy y trátala como
+> congelada. (v1 no incluye migración.)

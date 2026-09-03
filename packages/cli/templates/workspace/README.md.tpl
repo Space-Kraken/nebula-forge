@@ -32,6 +32,34 @@ infra/app.ts                   CDK entry point (managed, no need to touch)
 `forge new` / `forge generate` (or on demand with `forge docs`), so the diagram
 always matches the real architecture. It renders natively on GitHub/GitLab.
 
+## Org naming & tag conventions (optional)
+
+By default forge names resources `<project>-<module>-<component>-<env>`. When
+your platform defines the contract (IAM deploy roles with name-prefix
+conditions, mandatory tags), declare it in `forge.json` and forge conforms:
+
+```jsonc
+{
+  "naming": {
+    "pattern": "corp-{project}-{env}-{module}-{name}"  // tokens: {project} {module} {name} {env}
+  },
+  "tags": {
+    "cost-center": "cc-1234",
+    "owner": "platform-team",
+    "app": "{project}",
+    "stage": "{env}"                                   // tag values: {project} {module} {env}
+  }
+}
+```
+
+(`forge.json` is strict JSON — no comments; this block is the reference.)
+Every name is rendered and validated when the workspace loads (charset,
+length, collisions), and tags are applied to every resource by the engine.
+
+> ⚠️ **Names are identity.** Changing `naming` on an already-deployed
+> workspace REPLACES resources — for tables and buckets that means data loss.
+> Pick the convention before the first deploy and treat it as frozen.
+
 ## Lambda conventions (hexagonal + fusion)
 
 TypeScript lambdas follow hexagonal architecture on

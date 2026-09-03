@@ -150,6 +150,14 @@ nunca queda una referencia colgante.
   "defaultEnvironment": "dev",
   "defaults": { "runtime": "ts" },  // opcional: runtime por defecto
   "packs": ["forge-pack-secret"],   // opcional: component packs (npm o "./ruta.js")
+  "naming": {                        // opcional: convención de nombres de la org
+    "pattern": "corp-{project}-{env}-{module}-{name}",  // tokens fijos: {project} {module} {name} {env}
+    "separator": "_"                 // alternativa ligera: solo cambia el separador
+  },                                 // ⚠️ cambiarlo en un workspace desplegado REEMPLAZA recursos
+  "tags": {                          // opcional: tags en todos los recursos (ambos engines)
+    "cost-center": "cc-1234",
+    "app": "{project}", "stage": "{env}"   // valores admiten {project} {module} {env}
+  },
   "environments": {
     "dev":  { "region": "us-east-1", "profile": "mi-perfil" },
     "prod": {

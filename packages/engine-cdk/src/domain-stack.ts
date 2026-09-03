@@ -2,7 +2,7 @@ import { Stack, Tags } from 'aws-cdk-lib';
 import type { StackProps } from 'aws-cdk-lib';
 import type { DomainSpec, WorkspaceModel } from '@forgecli/core';
 import type { Construct } from 'constructs';
-import { ForgeError, packComponentDefinition } from '@forgecli/core';
+import { ForgeError, packComponentDefinition, renderTags } from '@forgecli/core';
 import { applyBindings, applySubscriptions } from './bindings';
 import { buildComponent } from './builders';
 import type { BuildContext } from './builders';
@@ -66,5 +66,15 @@ export class DomainStack extends Stack {
     Tags.of(this).add('forge:app', props.model.name);
     Tags.of(this).add('forge:domain', props.domain.name);
     Tags.of(this).add('forge:environment', props.environment);
+    // Workspace tags (forge.json "tags"): the org contract, applied to every
+    // taggable resource in the stack. Values render {project}/{module}/{env}.
+    const workspaceTags = renderTags(props.model.tags, {
+      project: props.model.name,
+      module: props.domain.name,
+      env: props.environment,
+    });
+    for (const [key, value] of Object.entries(workspaceTags)) {
+      Tags.of(this).add(key, value);
+    }
   }
 }

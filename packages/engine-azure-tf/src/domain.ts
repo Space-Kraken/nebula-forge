@@ -1,4 +1,12 @@
-import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, stackNameFor } from '@forgecli/core';
+import {
+  bindingEnvVarFor,
+  configureNaming,
+  ForgeError,
+  renderTags,
+  resolveBinding,
+  resourceNameFor,
+  stackNameFor,
+} from '@forgecli/core';
 import type { ComponentSpec, DomainSpec, WorkspaceModel } from '@forgecli/core';
 import { applyExtension } from './extend';
 import { deterministicGuid, globalName, resourceGroupName, storageAccountName, tfLabel } from './names';
@@ -83,6 +91,9 @@ export function synthesizeDomain(
       `Available environments: ${Object.keys(model.environments).join(', ')}`,
     );
   }
+  // Names must render with THIS workspace's convention, even when the model
+  // was built without loadWorkspace (tests, embedding).
+  configureNaming(model.naming);
   const ctx: Ctx = { model, domain, environment, region: envSpec.region };
   assertSupported(ctx);
 
@@ -369,7 +380,9 @@ export function synthesizeDomain(
     }
 
     const app = addResource(doc, 'azurerm_linux_function_app', label, {
-      name: globalName('fn', [model.name, domain.name, component.name, environment], 60),
+      // The workspace naming pattern feeds the name; the helper still owns
+      // the 60-char global-uniqueness constraint (hash-truncated when long).
+      name: globalName('fn', [resourceNameFor(model.name, domain.name, component.name, environment)], 60),
       resource_group_name: rgName,
       location: rgLocation,
       service_plan_id: ref(plan!, 'id'),
@@ -432,6 +445,44 @@ export function synthesizeDomain(
     doc.output[`${tfLabel(name)}_topic_endpoint`] = { value: ref(address, 'endpoint') };
   }
 
+  applyWorkspaceTags(doc, model, ctx.domain, environment);
   applyExtension({ document: doc, model, domain: ctx.domain, environment });
   return doc;
+}
+
+/**
+ * azurerm resource kinds forge creates that accept tags — role assignments,
+ * containers, queues/topics and subscriptions do NOT, so tagging is a
+ * whitelist, never a blanket.
+ */
+const TAGGABLE_TF_TYPES = new Set([
+  'azurerm_resource_group',
+  'azurerm_storage_account',
+  'azurerm_cosmosdb_account',
+  'azurerm_servicebus_namespace',
+  'azurerm_service_plan',
+  'azurerm_linux_function_app',
+  'azurerm_eventgrid_topic',
+]);
+
+/** forge.json "tags" on every taggable resource; forge's own tags win on conflict. */
+function applyWorkspaceTags(
+  doc: TfDocument,
+  model: WorkspaceModel,
+  domain: DomainSpec,
+  environment: string,
+): void {
+  const rendered = renderTags(model.tags, {
+    project: model.name,
+    module: domain.name,
+    env: environment,
+  });
+  if (Object.keys(rendered).length === 0) return;
+  const resources = doc.resource as Record<string, Record<string, Record<string, unknown>>>;
+  for (const [type, instances] of Object.entries(resources)) {
+    if (!TAGGABLE_TF_TYPES.has(type)) continue;
+    for (const instance of Object.values(instances)) {
+      instance.tags = { ...rendered, ...(instance.tags as Record<string, string> | undefined) };
+    }
+  }
 }

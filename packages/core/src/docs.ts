@@ -230,6 +230,12 @@ export function renderAgentGuide(model: WorkspaceModel): string {
   lines.push('   change legitimately). All tests: `forge test`.');
   lines.push('6. Custom infra beyond forge types goes in `domains/<module>/extend.ts` (escape');
   lines.push('   hatch) or a component pack — never scattered raw IaC.');
+  if (model.naming || model.tags) {
+    lines.push('7. This workspace follows an ORG naming/tag contract (forge.json "naming"/"tags").');
+    lines.push('   Physical names are a pure function of the model — never hand-tune them, and');
+    lines.push('   never change "naming" on a deployed workspace: names are identity, changing');
+    lines.push('   them REPLACES resources (stateful ones lose data).');
+  }
   lines.push('');
   lines.push('## Current architecture');
   lines.push('');

@@ -17,7 +17,7 @@ import {
 } from './model';
 import { loadPacks, packComponentDefinition, packComponentTypes } from './packs';
 import type { PackComponentSpec } from './packs';
-import { resourceNameFor } from './names';
+import { assertValidNaming, assertValidTags, configureNaming, resourceNameFor } from './names';
 import { isVariableSegment } from './routes';
 import { z } from 'zod';
 import {
@@ -90,6 +90,11 @@ export function loadWorkspace(startDir: string): WorkspaceModel {
     path.join(root, WORKSPACE_MANIFEST),
   );
   loadPacks(root, manifest.packs);
+  // The org naming/tag contract activates BEFORE validation so collisions,
+  // charsets and lengths are checked against the names that will actually ship.
+  assertValidNaming(manifest.naming);
+  assertValidTags(manifest.tags, manifest.engine);
+  configureNaming(manifest.naming);
   const model: WorkspaceModel = { ...manifest, root, domains: loadDomains(root) };
   validateModel(model);
   return model;
@@ -435,19 +440,47 @@ function validateApiRoutes(model: WorkspaceModel): void {
  * "app-pay-ments-x-<env>". Deploys would fail (or cross-domain by-name
  * references become ambiguous), so reject the workspace up front.
  */
+/**
+ * Renders every component's physical name for every environment with the
+ * ACTIVE naming convention and validates collisions, charset and length —
+ * a pattern that produces an undeployable name must fail here, not in CDK
+ * or Terraform.
+ */
 function validatePhysicalNames(model: WorkspaceModel): void {
-  const owners = new Map<string, string>();
-  for (const domain of model.domains) {
-    for (const component of [...domain.components, ...(domain.packComponents ?? [])]) {
-      const flattened = `${model.name}-${domain.name}-${component.name}`;
-      const owner = owners.get(flattened);
-      if (owner) {
-        throw new ForgeError(
-          `Components "${owner}" and "${domain.name}/${component.name}" would share the physical resource name "${flattened}-<env>"`,
-          'Dash-ambiguous domain/component names collide when joined. Rename one of the components (or domains) so the flattened names differ.',
-        );
+  const azure = model.engine === 'azure-terraform';
+  // Azure function apps are global DNS names (lowercase); Lambda allows _ too.
+  const charset = azure ? /^[a-z0-9][a-z0-9-]*$/ : /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+  const functionLimit = azure ? 60 : 64;
+
+  for (const envName of Object.keys(model.environments)) {
+    const owners = new Map<string, string>();
+    for (const domain of model.domains) {
+      for (const component of [...domain.components, ...(domain.packComponents ?? [])]) {
+        const rendered = resourceNameFor(model.name, domain.name, component.name, envName);
+        const owner = owners.get(rendered);
+        if (owner) {
+          throw new ForgeError(
+            `Components "${owner}" and "${domain.name}/${component.name}" would share the physical resource name "${rendered}"`,
+            'Two components rendered the same name with the workspace naming convention. Rename one of them (or adjust forge.json "naming" so the dimensions stay distinguishable).',
+          );
+        }
+        owners.set(rendered, `${domain.name}/${component.name}`);
+
+        if (!charset.test(rendered)) {
+          throw new ForgeError(
+            `Component "${domain.name}/${component.name}" renders the physical name "${rendered}", which is not a valid ${azure ? 'Azure' : 'AWS'} resource name`,
+            azure
+              ? 'Azure global names allow lowercase letters, digits and hyphens only — adjust forge.json "naming".'
+              : 'AWS resource names here allow letters, digits, hyphens and underscores — adjust forge.json "naming".',
+          );
+        }
+        if (model.naming && (FUNCTION_LIKE_TYPES as readonly string[]).includes(component.type) && rendered.length > functionLimit) {
+          throw new ForgeError(
+            `Component "${domain.name}/${component.name}" renders the physical name "${rendered}" (${rendered.length} chars), over the ${functionLimit}-character function name limit`,
+            'Shorten forge.json naming.pattern (or the project/module/component names).',
+          );
+        }
       }
-      owners.set(flattened, `${domain.name}/${component.name}`);
     }
   }
 }

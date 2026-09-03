@@ -49,6 +49,25 @@ export const workspaceManifestSchema = z
       .optional(),
     /** Component packs: npm package names or relative paths ("./packs/x"). */
     packs: z.array(z.string()).optional(),
+    /**
+     * Org-defined naming convention. pattern: template over {project},
+     * {module}, {name}, {env}; separator joins the default dimensions when no
+     * pattern is given. Absent = forge's historic convention, byte for byte.
+     * WARNING: names are identity — changing this on a DEPLOYED workspace
+     * replaces resources (tables/buckets lose data).
+     */
+    naming: z
+      .object({
+        pattern: z.string().min(1).optional(),
+        separator: z.string().min(1).max(5).optional(),
+      })
+      .strict()
+      .optional(),
+    /**
+     * Tags applied to every resource by both engines. Values accept
+     * {project}, {module} and {env}.
+     */
+    tags: z.record(z.string().min(1), z.string().min(1)).optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {

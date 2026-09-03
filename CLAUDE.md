@@ -106,6 +106,30 @@ in place. `function` components may also declare `config.subscriptions`
 (EventBridge rule → Lambda direct); queue-worker remains the recommended
 target for reliable processing (retries + DLQ).
 
+## Org naming + tags (forge.json "naming"/"tags")
+
+The org declares the contract; forge conforms. `naming.pattern` is a template
+over the FIXED vocabulary {project}/{module}/{name}/{env} (exactly
+resourceNameFor's dimensions — never add tokens); `separator` re-joins the
+default dimensions. Resolution lives ONCE in `core/src/names.ts`: a
+module-global pattern set by `configureNaming`, called by loadWorkspace AND
+by both engine entry points from `model.naming` — engines/docs keep calling
+`resourceNameFor(project, module, name, env)` untouched. Absent config = the
+historic convention byte for byte (`defaultNamingPattern()` is the snapshot).
+Names stay a pure function of the model (cross-domain addressing + collision
+detection depend on it) — no per-resource overrides, ever. The loader renders
+EVERY component name per environment and validates collisions, charset
+(azure: lowercase; aws: [A-Za-z0-9_-]) and, when naming is configured,
+function-name length (64 aws / 60 azure). `tags` values render
+{project}/{module}/{env} ({name} is per-resource → rejected); aws applies
+them via `Tags.of(stack)`, azure via a TAGGABLE_TF_TYPES whitelist (role
+assignments/queues accept none). Azure component names: the pattern feeds
+`globalName('fn', [resourceNameFor(...)])` — the hashed helper still owns
+shortness/uniqueness; domain-level shared infra (rg-/st/cos-/sb-) keeps its
+internal hashed names in v1. `bindingEnvVarFor` and everything generated code
+references is OUT of scope. Names are identity: changing `naming` on a
+deployed workspace REPLACES resources (scaffolded README + AGENTS.md warn).
+
 ## Validation philosophy
 
 Fail at generate/load time, never at deploy time. `core/src/routes.ts` is the

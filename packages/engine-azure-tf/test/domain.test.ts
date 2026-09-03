@@ -171,6 +171,33 @@ describe('synthesizeDomain', () => {
     expect(() => synthesizeDomain(model, 'orders', 'dev')).toThrow(/not supported by the azure-terraform engine yet/);
   });
 
+  it('renders function app names with the workspace naming pattern; hashed helpers keep constraints', () => {
+    const model = makeModel();
+    model.naming = { pattern: 'corp-{module}-{name}-{env}' };
+    const custom = synthesizeDomain(model, 'orders', 'dev');
+    const customResources = custom.resource as Record<string, Record<string, any>>;
+    expect(customResources.azurerm_linux_function_app.worker.name).toBe('fn-corp-orders-worker-dev');
+    // domain-level shared infra keeps its short, globally-unique hashed names
+    expect(customResources.azurerm_storage_account.domain.name).toMatch(/^st[a-z0-9]{1,22}$/);
+    expect(customResources.azurerm_storage_account.domain.name.length).toBeLessThanOrEqual(24);
+  });
+
+  it('applies workspace tags to taggable resources only, forge tags winning on conflict', () => {
+    const model = makeModel();
+    model.tags = { 'cost-center': 'cc-1234', app: '{project}', 'forge-app': 'spoofed' };
+    const tagged = synthesizeDomain(model, 'orders', 'dev');
+    const taggedResources = tagged.resource as Record<string, Record<string, any>>;
+    expect(taggedResources.azurerm_linux_function_app.worker.tags).toMatchObject({
+      'cost-center': 'cc-1234',
+      app: 'shop',
+    });
+    expect(taggedResources.azurerm_resource_group.domain.tags['forge-app']).toBe('shop');
+    expect(taggedResources.azurerm_resource_group.domain.tags['cost-center']).toBe('cc-1234');
+    // role assignments and queues do not accept tags — never tagged
+    expect(taggedResources.azurerm_role_assignment.worker_own_queue.tags).toBeUndefined();
+    expect(taggedResources.azurerm_servicebus_queue.worker_queue.tags).toBeUndefined();
+  });
+
   it('rejects component packs until azure builders exist', () => {
     const model = makeModel();
     model.domains[1].packComponents = [

@@ -1,5 +1,5 @@
 import { App } from 'aws-cdk-lib';
-import { ForgeError, stackNameFor } from '@forgecli/core';
+import { configureNaming, ForgeError, stackNameFor } from '@forgecli/core';
 import type { Engine, SynthOptions, WorkspaceModel } from '@forgecli/core';
 import { DomainStack } from './domain-stack';
 
@@ -10,6 +10,9 @@ export interface CreateAppResult {
 }
 
 export function createApp(model: WorkspaceModel, options: SynthOptions): CreateAppResult {
+  // Names must render with THIS workspace's convention, even when the model
+  // was built without loadWorkspace (tests, embedding).
+  configureNaming(model.naming);
   const envSpec = model.environments[options.environment];
   if (!envSpec) {
     throw new ForgeError(
