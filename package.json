@@ -1,9 +1,9 @@
 {
-  "name": "modern-cloud-architecture-accelerator",
+  "name": "nebula-forge",
   "license": "Apache-2.0",
   "version": "0.1.0",
   "private": true,
-  "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
+  "description": "Nebula Forge — an Angular-style CLI for building well-architected, domain-separated cloud solutions",
   "packageManager": "pnpm@11.23.0",
   "scripts": {
     "build": "tsc -b packages/cli packages/engine-cdk packages/engine-azure-tf packages/mcp",

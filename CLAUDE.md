@@ -1,6 +1,6 @@
 Do not include a Co-Authored-By line in commit messages.
 
-# forge (modern-cloud-architecture-accelerator)
+# Nebula Forge (repo: nebula-forge, binario: `forge`)
 
 Angular-style CLI that scaffolds well-architected, domain-separated AWS
 projects. pnpm monorepo, TypeScript project references, oclif CLI.
