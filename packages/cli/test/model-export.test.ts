@@ -1,5 +1,5 @@
-import { componentManifestSchema, configureNaming, renderModelExport } from '@forgecli/core';
-import type { ComponentSpec, WorkspaceModel } from '@forgecli/core';
+import { componentManifestSchema, configureNaming, renderModelExport } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { awsCdkEngine } from '../src/lib/engines/aws-cdk';

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { globalName, hashSuffix } from '@forgecli/core';
+import { globalName, hashSuffix } from '@space-kraken/nebula-forge-core';
 
 /**
  * Azure naming: several resource kinds have short, lowercase-alphanumeric,

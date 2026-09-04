@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ForgeError } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
 import { FORGE_TOOLS } from './tools';
 
 /**

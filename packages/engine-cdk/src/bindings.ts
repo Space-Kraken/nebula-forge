@@ -2,7 +2,7 @@ import { EventBus, Rule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction as LambdaFunctionTarget, SqsQueue } from 'aws-cdk-lib/aws-events-targets';
 import type { IRuleTarget } from 'aws-cdk-lib/aws-events';
 import type { IEventBus } from 'aws-cdk-lib/aws-events';
-import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, toConstructId } from '@forgecli/core';
+import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, toConstructId } from '@space-kraken/nebula-forge-core';
 import type { Construct } from 'constructs';
 import type { BuildContext } from './builders';
 import type { BuiltComponent } from './types';

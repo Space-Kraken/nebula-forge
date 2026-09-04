@@ -1,4 +1,4 @@
-import { listBlueprints } from '@forgecli/blueprints';
+import { listBlueprints } from '@space-kraken/nebula-forge-blueprints';
 import { BaseCommand } from '../lib/base';
 
 export default class Blueprints extends BaseCommand {

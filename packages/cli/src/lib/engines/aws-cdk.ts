@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, resourceNameFor, stackNameFor } from '@forgecli/core';
-import type { EngineCapabilityProvider, WorkspaceModel } from '@forgecli/core';
+import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, resourceNameFor, stackNameFor } from '@space-kraken/nebula-forge-core';
+import type { EngineCapabilityProvider, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { runInWorkspace, runInWorkspaceRetrying } from '../proc';
 import { writeCredentialSetting } from '../state';
 import type { EngineAdapter } from './index';

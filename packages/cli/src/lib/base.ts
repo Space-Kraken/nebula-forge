@@ -1,6 +1,6 @@
 import { Command } from '@oclif/core';
-import { ForgeError, loadWorkspace } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import { ForgeError, loadWorkspace } from '@space-kraken/nebula-forge-core';
+import type { WorkspaceModel } from '@space-kraken/nebula-forge-core';
 
 /** Renders ForgeErrors as clean messages with their fix-it hint. */
 export abstract class BaseCommand extends Command {

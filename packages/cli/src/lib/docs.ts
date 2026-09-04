@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { loadWorkspace, renderAgentGuide, renderArchitectureMarkdown } from '@forgecli/core';
+import { loadWorkspace, renderAgentGuide, renderArchitectureMarkdown } from '@space-kraken/nebula-forge-core';
 import { writeFile } from './templates';
 
 export const ARCHITECTURE_DOC = path.join('docs', 'architecture.md');

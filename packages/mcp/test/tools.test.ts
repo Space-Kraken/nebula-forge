@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { configureNaming } from '@forgecli/core';
-import { scaffoldModule, scaffoldWorkspace } from '@forgecli/cli/dist/lib/scaffold';
+import { configureNaming } from '@space-kraken/nebula-forge-core';
+import { scaffoldModule, scaffoldWorkspace } from '@space-kraken/nebula-forge/dist/lib/scaffold';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   attachTool,

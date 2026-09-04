@@ -8,7 +8,7 @@ projects. pnpm monorepo, TypeScript project references, oclif CLI.
 ## Commands
 
 - `pnpm install` / `pnpm run build` (tsc -b) / `pnpm test` (all packages)
-- Single package: `pnpm --filter @forgecli/engine-cdk run test`
+- Single package: `pnpm --filter @space-kraken/nebula-forge-engine-cdk run test`
 - Try the CLI locally: `node packages/cli/bin/run.js new demo --blueprint queue-processing --link`
   (`--link` wires `link:` deps to this checkout; generated app needs `pnpm install` inside it)
 
@@ -224,10 +224,10 @@ duplicate it.
 
 ## MCP server (packages/mcp)
 
-`@forgecli/mcp` (private, unpublished) exposes forge's semantics as MCP
+`@space-kraken/nebula-forge-mcp` (private, unpublished) exposes forge's semantics as MCP
 tools over stdio for agentic executors. The PUBLIC contract is the tools —
 cli/src/lib stays internal and free to change (mcp deep-imports
-`@forgecli/cli/dist/lib/*`, fine inside the monorepo; no semver promise on
+`@space-kraken/nebula-forge/dist/lib/*`, fine inside the monorepo; no semver promise on
 those APIs). Handlers live in src/tools.ts as pure functions over an
 explicit workspaceRoot (tests exercise them directly, never the transport);
 src/server.ts only wires them into McpServer. Every tool runs the

@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import AdmZip from 'adm-zip';
 import { buildSync } from 'esbuild';
-import { ForgeError } from '@forgecli/core';
-import type { ComponentSpec } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec } from '@space-kraken/nebula-forge-core';
 
 const HOST_JSON = {
   version: '2.0',

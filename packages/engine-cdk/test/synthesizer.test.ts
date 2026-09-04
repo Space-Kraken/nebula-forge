@@ -2,8 +2,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { componentManifestSchema } from '@forgecli/core';
-import type { ComponentSpec, WorkspaceModel } from '@forgecli/core';
+import { componentManifestSchema } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src';
 
@@ -642,7 +642,7 @@ describe('org naming and tags', () => {
 
 describe('packs and the escape hatch', () => {
   it('builds pack components through their registered aws builder, bindings included', async () => {
-    const { registerPack, resetPacks } = await import('@forgecli/core');
+    const { registerPack, resetPacks } = await import('@space-kraken/nebula-forge-core');
     const { Bucket } = await import('aws-cdk-lib/aws-s3');
     resetPacks();
     registerPack({

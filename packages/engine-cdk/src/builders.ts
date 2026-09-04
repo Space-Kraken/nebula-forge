@@ -21,8 +21,8 @@ import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
-import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, toConstructId } from '@forgecli/core';
-import type { ComponentSpec, CorsConfig, CustomDomainConfig, DomainSpec, WorkspaceModel } from '@forgecli/core';
+import { bindingEnvVarFor, ForgeError, resolveBinding, resourceNameFor, toConstructId } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, CorsConfig, CustomDomainConfig, DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import type { Construct } from 'constructs';
 import type { BuiltComponent } from './types';
 

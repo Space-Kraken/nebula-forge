@@ -1,5 +1,5 @@
-import { loadWorkspace } from '@forgecli/core';
-import { synthesizeDomain } from '@forgecli/engine-azure-tf';
+import { loadWorkspace } from '@space-kraken/nebula-forge-core';
+import { synthesizeDomain } from '@space-kraken/nebula-forge-engine-azure-tf';
 import { describe, expect, it } from 'vitest';
 
 describe('{{module}} infrastructure', () => {

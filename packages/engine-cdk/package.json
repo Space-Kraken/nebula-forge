@@ -1,5 +1,5 @@
 {
-  "name": "@forgecli/engine-cdk",
+  "name": "@space-kraken/nebula-forge-engine-cdk",
   "version": "0.1.0",
   "description": "AWS CDK synthesis engine for the forge architecture model",
   "license": "Apache-2.0",
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@forgecli/core": "workspace:^",
+    "@space-kraken/nebula-forge-core": "workspace:^",
     "aws-cdk-lib": "^2.200.0",
     "constructs": "^10.3.0",
     "esbuild": "^0.23.0"

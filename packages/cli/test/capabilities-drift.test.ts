@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { BUILTIN_COMPONENT_TYPES, componentManifestSchema, configureNaming } from '@forgecli/core';
-import type { ComponentSpec, WorkspaceModel } from '@forgecli/core';
+import { BUILTIN_COMPONENT_TYPES, componentManifestSchema, configureNaming } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { awsCdkEngine } from '../src/lib/engines/aws-cdk';
 import { azureTerraformEngine } from '../src/lib/engines/azure-terraform';
@@ -113,7 +113,7 @@ describe('capability manifests match real synthesized output', () => {
   });
 
   it('aws: declared CloudFormation types == types present in a maximal synth', async () => {
-    const { createApp } = await import('@forgecli/engine-cdk');
+    const { createApp } = await import('@space-kraken/nebula-forge-engine-cdk');
     const outdir = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-drift-'));
     outdirs.push(outdir);
     const model = maximalAwsModel();
@@ -142,7 +142,7 @@ describe('capability manifests match real synthesized output', () => {
   }, 120000);
 
   it('azure: declared Terraform types == types present in a full synth', async () => {
-    const { synthesizeDomain } = await import('@forgecli/engine-azure-tf');
+    const { synthesizeDomain } = await import('@space-kraken/nebula-forge-engine-azure-tf');
     const model: WorkspaceModel = {
       name: 'shop',
       engine: 'azure-terraform',

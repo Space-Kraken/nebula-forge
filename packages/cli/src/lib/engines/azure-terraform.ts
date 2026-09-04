@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, globalName, resourceNameFor } from '@forgecli/core';
-import type { EngineCapabilityProvider, WorkspaceModel } from '@forgecli/core';
+import { builtinTagsFor, ForgeError, FUNCTION_LIKE_TYPES, globalName, resourceNameFor } from '@space-kraken/nebula-forge-core';
+import type { EngineCapabilityProvider, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { commandAvailable, runInWorkspace } from '../proc';
 import { writeCredentialSetting, writeEnvironmentState } from '../state';
 import type { StateConfig } from '../state';

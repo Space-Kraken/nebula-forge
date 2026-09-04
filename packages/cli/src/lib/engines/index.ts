@@ -1,5 +1,5 @@
-import { ForgeError } from '@forgecli/core';
-import type { ComponentType, EngineCapabilityProvider, Runtime, WorkspaceModel } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
+import type { ComponentType, EngineCapabilityProvider, Runtime, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { awsCdkEngine } from './aws-cdk';
 import { azureTerraformEngine } from './azure-terraform';
 
@@ -18,7 +18,7 @@ export interface EngineComponentFile {
 /**
  * A CLI-side engine adapter: which files a workspace of this engine needs and
  * how synth/diff/deploy reach the engine's toolchain. The infrastructure
- * mapping itself lives in the engine package (e.g. @forgecli/engine-cdk) —
+ * mapping itself lives in the engine package (e.g. @space-kraken/nebula-forge-engine-cdk) —
  * this layer only dispatches.
  */
 export interface EngineAdapter {

@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core';
-import { loadWorkspace, renderArchitectureMermaid } from '@forgecli/core';
+import { loadWorkspace, renderArchitectureMermaid } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { ARCHITECTURE_DOC, writeArchitectureDocs } from '../lib/docs';
 

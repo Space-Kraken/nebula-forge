@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core';
-import { loadWorkspace } from '@forgecli/core';
+import { loadWorkspace } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { engineFor } from '../lib/engines';
 import { resolveEnvironment } from '../lib/selection';

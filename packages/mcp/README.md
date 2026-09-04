@@ -1,4 +1,4 @@
-# @forgecli/mcp
+# @space-kraken/nebula-forge-mcp
 
 MCP (Model Context Protocol) server exposing forge's workspace operations as
 tools for agentic executors. The public contract is these tools — the

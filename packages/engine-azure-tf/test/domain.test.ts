@@ -2,8 +2,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import AdmZip from 'adm-zip';
-import { componentManifestSchema } from '@forgecli/core';
-import type { ComponentSpec, WorkspaceModel } from '@forgecli/core';
+import { componentManifestSchema } from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { afterAll, describe, expect, it } from 'vitest';
 import { packageFunction, storageAccountName, synthesizeDomain, toNcrontab } from '../src';
 

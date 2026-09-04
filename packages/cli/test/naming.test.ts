@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { configureNaming, loadWorkspace, resourceNameFor } from '@forgecli/core';
+import { configureNaming, loadWorkspace, resourceNameFor } from '@space-kraken/nebula-forge-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { scaffoldComponent, scaffoldModule, scaffoldWorkspace } from '../src/lib/scaffold';
 

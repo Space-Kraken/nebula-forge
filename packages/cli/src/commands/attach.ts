@@ -1,5 +1,5 @@
 import { Args, Flags } from '@oclif/core';
-import { ForgeError, FUNCTION_LIKE_TYPES, loadWorkspace } from '@forgecli/core';
+import { ForgeError, FUNCTION_LIKE_TYPES, loadWorkspace } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { attachAuth, attachBinding, attachMount, attachSubscription, parseSubscribes } from '../lib/attach';
 import { promptBusSubscription, promptOutboundBindings } from '../lib/coupling-prompts';

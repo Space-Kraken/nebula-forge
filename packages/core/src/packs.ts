@@ -35,7 +35,7 @@ export interface PackComponentDefinition {
   scaffold?: PackScaffoldFile[];
   /**
    * Builders per engine id. Typed by each engine package (aws-cdk:
-   * AwsPackBuilder from @forgecli/engine-cdk). Missing engine = the type is
+   * AwsPackBuilder from @space-kraken/nebula-forge-engine-cdk). Missing engine = the type is
    * rejected on that engine.
    */
   engines: Record<string, unknown>;

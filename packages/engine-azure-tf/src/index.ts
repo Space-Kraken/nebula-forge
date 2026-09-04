@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { stackNameFor } from '@forgecli/core';
-import type { Engine, SynthOptions, SynthResult, WorkspaceModel } from '@forgecli/core';
+import { stackNameFor } from '@space-kraken/nebula-forge-core';
+import type { Engine, SynthOptions, SynthResult, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { AZURE_UNSUPPORTED_TYPES, synthesizeDomain } from './domain';
 import { packageFunction } from './packaging';
 

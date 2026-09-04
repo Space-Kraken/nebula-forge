@@ -13,9 +13,9 @@ import {
   toConstructId,
   toEnvVarName,
   WORKSPACE_MANIFEST,
-} from '@forgecli/core';
-import type { Binding, ComponentType, Runtime } from '@forgecli/core';
-import type { Blueprint } from '@forgecli/blueprints';
+} from '@space-kraken/nebula-forge-core';
+import type { Binding, ComponentType, Runtime } from '@space-kraken/nebula-forge-core';
+import type { Blueprint } from '@space-kraken/nebula-forge-blueprints';
 import { regenerateControllersBarrel, writeEndpointFiles } from './endpoints';
 import { engineFor } from './engines';
 import { readWorkspaceSettings } from './settings';

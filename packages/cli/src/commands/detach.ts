@@ -1,5 +1,5 @@
 import { Args, Flags } from '@oclif/core';
-import { ForgeError, loadWorkspace } from '@forgecli/core';
+import { ForgeError, loadWorkspace } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { detachAuth, detachBinding, detachMount, detachSubscription } from '../lib/attach';
 import { writeArchitectureDocs } from '../lib/docs';

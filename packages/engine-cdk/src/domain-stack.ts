@@ -1,8 +1,8 @@
 import { Stack, Tags } from 'aws-cdk-lib';
 import type { StackProps } from 'aws-cdk-lib';
-import type { DomainSpec, WorkspaceModel } from '@forgecli/core';
+import type { DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import type { Construct } from 'constructs';
-import { builtinTagsFor, ForgeError, packComponentDefinition, renderTags } from '@forgecli/core';
+import { builtinTagsFor, ForgeError, packComponentDefinition, renderTags } from '@space-kraken/nebula-forge-core';
 import { applyBindings, applySubscriptions } from './bindings';
 import { buildComponent } from './builders';
 import type { BuildContext } from './builders';

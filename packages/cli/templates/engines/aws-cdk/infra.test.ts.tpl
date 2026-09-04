@@ -1,6 +1,6 @@
 import { Template } from 'aws-cdk-lib/assertions';
-import { loadWorkspace } from '@forgecli/core';
-import { createApp } from '@forgecli/engine-cdk';
+import { loadWorkspace } from '@space-kraken/nebula-forge-core';
+import { createApp } from '@space-kraken/nebula-forge-engine-cdk';
 import { describe, expect, it } from 'vitest';
 
 describe('{{module}} infrastructure', () => {

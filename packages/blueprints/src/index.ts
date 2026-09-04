@@ -1,5 +1,5 @@
-import { ForgeError } from '@forgecli/core';
-import type { Binding, ComponentType } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
+import type { Binding, ComponentType } from '@space-kraken/nebula-forge-core';
 
 export interface BlueprintComponentDef {
   name: string;

@@ -8,8 +8,8 @@ import {
   loadWorkspace,
   packComponentDefinition,
   packComponentTypes,
-} from '@forgecli/core';
-import type { Binding, BindingAccess, ComponentType, DomainSpec, WorkspaceModel } from '@forgecli/core';
+} from '@space-kraken/nebula-forge-core';
+import type { Binding, BindingAccess, ComponentType, DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../../lib/base';
 import { attachBinding, parseAttaches, parseSubscribes } from '../../lib/attach';
 import { promptBusSubscription, promptOutboundBindings } from '../../lib/coupling-prompts';

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { loadWorkspace, workspaceManifestSchema } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import { loadWorkspace, workspaceManifestSchema } from '@space-kraken/nebula-forge-core';
+import type { WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bootstrapArgs } from '../src/lib/engines/aws-cdk';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@forgecli/engine-azure-tf",
+  "name": "@space-kraken/nebula-forge-engine-azure-tf",
   "version": "0.1.0",
   "description": "Azure synthesis engine for the forge architecture model — generates plain Terraform JSON",
   "license": "Apache-2.0",
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@forgecli/core": "workspace:^",
+    "@space-kraken/nebula-forge-core": "workspace:^",
     "adm-zip": "^0.5.14",
     "esbuild": "^0.23.0"
   },

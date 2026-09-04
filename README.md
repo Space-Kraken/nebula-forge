@@ -176,7 +176,7 @@ conforma:
 - **Tags propios controlables**: `tags.builtin` renombra o apaga
   `forge:app/domain/environment` cuando la plataforma tiene su propio
   esquema.
-- **Servidor MCP** (`@forgecli/mcp`): las operaciones del workspace como
+- **Servidor MCP** (`@space-kraken/nebula-forge-mcp`): las operaciones del workspace como
   tools para ejecutores agentic — no-interactivo, transaccional, con los
   errores accionables de forge.
 
@@ -231,7 +231,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 
 ## Roadmap
 
-- [ ] Publicar `@forgecli/*` en npm
+- [ ] Publicar `@space-kraken/nebula-forge-*` en npm
 - [ ] Azure 1b: `http-api` con fusion-azure, `static-site` con Front Door, Entra External ID, ACS email
 - [ ] Frontend en repo separado del backend (multi-repo: workspaces front/back independientes que se referencian) — diseño pendiente
 - [ ] `state-machine` (Step Functions) para orquestación

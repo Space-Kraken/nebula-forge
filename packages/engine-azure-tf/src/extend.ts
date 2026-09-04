@@ -2,8 +2,8 @@ import { createRequire } from 'node:module';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildSync } from 'esbuild';
-import { ForgeError } from '@forgecli/core';
-import type { DomainSpec, WorkspaceModel } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
+import type { DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import type { TfDocument } from './tf';
 
 /** What a domain's extend.ts receives on the azure-terraform engine. */

@@ -1,5 +1,5 @@
-import { bindableAccessFor } from '@forgecli/core';
-import type { Binding, BindingAccess, DomainSpec, WorkspaceModel } from '@forgecli/core';
+import { bindableAccessFor } from '@space-kraken/nebula-forge-core';
+import type { Binding, BindingAccess, DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import type { Subscription } from './attach';
 import { promptCheckbox, promptConfirm, promptInput, promptSelect } from './interactive';
 

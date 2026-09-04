@@ -5,7 +5,7 @@ import { renderTags, stackNameFor } from './names';
 /**
  * Machine-readable model export (`forge model --json`): the workspace
  * contract for external tooling — IAM policy generators, convention
- * validators, platform inventories — without importing @forgecli/core.
+ * validators, platform inventories — without importing @space-kraken/nebula-forge-core.
  *
  * Versioning policy: `schemaVersion` starts at 1. Additive changes (new
  * optional fields) keep the version; renames or semantic changes bump it.

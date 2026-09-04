@@ -1,4 +1,4 @@
-import { ForgeError } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
 
 const RATE_PATTERN = /^rate\((\d+)\s+(minute|minutes|hour|hours|day|days)\)$/;
 

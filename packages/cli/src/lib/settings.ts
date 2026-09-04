@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { WORKSPACE_MANIFEST } from '@forgecli/core';
-import type { Runtime } from '@forgecli/core';
+import { WORKSPACE_MANIFEST } from '@space-kraken/nebula-forge-core';
+import type { Runtime } from '@space-kraken/nebula-forge-core';
 
 export interface WorkspaceSettings {
   engine: string;

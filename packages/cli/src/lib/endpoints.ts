@@ -7,8 +7,8 @@ import {
   loadWorkspace,
   routePathIssues,
   toConstructId,
-} from '@forgecli/core';
-import type { Runtime } from '@forgecli/core';
+} from '@space-kraken/nebula-forge-core';
+import type { Runtime } from '@space-kraken/nebula-forge-core';
 import { engineFor } from './engines';
 import { readWorkspaceSettings } from './settings';
 import { writeFile, writeJson, writeRendered } from './templates';

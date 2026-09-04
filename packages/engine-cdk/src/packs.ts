@@ -1,4 +1,4 @@
-import type { PackComponentSpec } from '@forgecli/core';
+import type { PackComponentSpec } from '@space-kraken/nebula-forge-core';
 import type { Function as LambdaFunction } from 'aws-cdk-lib/aws-lambda';
 import type { Construct, IConstruct } from 'constructs';
 import type { BuildContext } from './builders';

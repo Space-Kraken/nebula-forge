@@ -8,15 +8,15 @@
     "cdk": "cdk"
   },
   "dependencies": {
-    "@forgecli/core": "{{coreDep}}",
-    "@forgecli/engine-cdk": "{{engineDep}}",
+    "@space-kraken/nebula-forge-core": "{{coreDep}}",
+    "@space-kraken/nebula-forge-engine-cdk": "{{engineDep}}",
     "@fusion-framework/server": "^1.4.1",
     "aws-cdk-lib": "^2.200.0",
     "constructs": "^10.3.0",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@forgecli/cli": "{{cliDep}}",
+    "@space-kraken/nebula-forge": "{{cliDep}}",
     "@types/aws-lambda": "^8.10.140",
     "@types/node": "^20.14.0",
     "aws-cdk": "^2.150.0",

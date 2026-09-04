@@ -39,14 +39,14 @@ alias forge='node ~/forge/packages/cli/bin/run.js'
 
 ## Workspace de prueba con `--link`
 
-Los workspaces generados dependen de `@forgecli/core` y del motor. Como aún
+Los workspaces generados dependen de `@space-kraken/nebula-forge-core` y del motor. Como aún
 no están publicados en npm, `pnpm install` no tendría de dónde sacarlos — el
 flag (oculto) `--link` lo resuelve escribiendo las dependencias como
 **symlinks a tu checkout**:
 
 ```jsonc
-// sin --link (cuando publiquemos):   "@forgecli/core": "^0.1.0"
-// con --link (hoy):                  "@forgecli/core": "link:<tu-repo>/packages/core"
+// sin --link (cuando publiquemos):   "@space-kraken/nebula-forge-core": "^0.1.0"
+// con --link (hoy):                  "@space-kraken/nebula-forge-core": "link:<tu-repo>/packages/core"
 ```
 
 Consecuencias: (1) no hace falta publicar nada; (2) al compilar el repo
@@ -58,7 +58,7 @@ paquetes se referencian con `workspace:^`, que solo resuelve dentro del
 monorepo.)
 
 Hoy, **todo** workspace que quieras instalar/probar necesita `--link`; cuando
-`@forgecli/*` esté en npm, será solo para probar cambios de forge sin
+`@space-kraken/nebula-forge-*` esté en npm, será solo para probar cambios de forge sin
 release:
 
 ```bash
@@ -94,6 +94,6 @@ Para destruir lo desplegado (forge aún no tiene `destroy`):
 ## Tips
 
 - Los demos generados no van dentro del repo (mantén `~/pruebas` aparte).
-- `pnpm --filter @forgecli/engine-cdk run test` para iterar un solo paquete.
+- `pnpm --filter @space-kraken/nebula-forge-engine-cdk run test` para iterar un solo paquete.
 - El primer synth AWS tarda más (bundling esbuild de cada Lambda); los
   siguientes usan caché de assets.

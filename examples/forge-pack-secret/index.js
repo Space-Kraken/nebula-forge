@@ -13,7 +13,7 @@
  */
 const { z } = require('zod');
 
-/** @type {import('@forgecli/core').ComponentPack} */
+/** @type {import('@space-kraken/nebula-forge-core').ComponentPack} */
 const pack = {
   name: 'forge-pack-secret',
   components: [
@@ -48,7 +48,7 @@ const pack = {
         },
       ],
       engines: {
-        /** @type {import('@forgecli/engine-cdk').AwsPackBuilder} */
+        /** @type {import('@space-kraken/nebula-forge-engine-cdk').AwsPackBuilder} */
         'aws-cdk': (scope, spec, ctx) => {
           const { Secret } = require('aws-cdk-lib/aws-secretsmanager');
           const secret = new Secret(scope, `Secret${spec.name}`, {

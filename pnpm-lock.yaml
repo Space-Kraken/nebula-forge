@@ -20,7 +20,7 @@ importers:
 
   packages/blueprints:
     dependencies:
-      '@forgecli/core':
+      '@space-kraken/nebula-forge-core':
         specifier: workspace:^
         version: link:../core
     devDependencies:
@@ -33,23 +33,23 @@ importers:
 
   packages/cli:
     dependencies:
-      '@forgecli/blueprints':
-        specifier: workspace:^
-        version: link:../blueprints
-      '@forgecli/core':
-        specifier: workspace:^
-        version: link:../core
       '@inquirer/prompts':
         specifier: ^5.3.8
         version: 5.5.0
       '@oclif/core':
         specifier: ^4.0.17
         version: 4.14.0
+      '@space-kraken/nebula-forge-blueprints':
+        specifier: workspace:^
+        version: link:../blueprints
+      '@space-kraken/nebula-forge-core':
+        specifier: workspace:^
+        version: link:../core
     devDependencies:
-      '@forgecli/engine-azure-tf':
+      '@space-kraken/nebula-forge-engine-azure-tf':
         specifier: workspace:^
         version: link:../engine-azure-tf
-      '@forgecli/engine-cdk':
+      '@space-kraken/nebula-forge-engine-cdk':
         specifier: workspace:^
         version: link:../engine-cdk
       '@types/node':
@@ -83,7 +83,7 @@ importers:
 
   packages/engine-azure-tf:
     dependencies:
-      '@forgecli/core':
+      '@space-kraken/nebula-forge-core':
         specifier: workspace:^
         version: link:../core
       adm-zip:
@@ -108,7 +108,7 @@ importers:
 
   packages/engine-cdk:
     dependencies:
-      '@forgecli/core':
+      '@space-kraken/nebula-forge-core':
         specifier: workspace:^
         version: link:../core
       aws-cdk-lib:
@@ -133,15 +133,15 @@ importers:
 
   packages/mcp:
     dependencies:
-      '@forgecli/cli':
-        specifier: workspace:^
-        version: link:../cli
-      '@forgecli/core':
-        specifier: workspace:^
-        version: link:../core
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.30.0(supports-color@8.1.1)(zod@3.25.76)
+      '@space-kraken/nebula-forge':
+        specifier: workspace:^
+        version: link:../cli
+      '@space-kraken/nebula-forge-core':
+        specifier: workspace:^
+        version: link:../core
       zod:
         specifier: ^3.23.8
         version: 3.25.76

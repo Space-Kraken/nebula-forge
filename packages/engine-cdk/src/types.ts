@@ -1,4 +1,4 @@
-import type { AnyComponentSpec, BindingAccess } from '@forgecli/core';
+import type { AnyComponentSpec, BindingAccess } from '@space-kraken/nebula-forge-core';
 import type { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import type { IEventBus } from 'aws-cdk-lib/aws-events';
 import type { Function as LambdaFunction } from 'aws-cdk-lib/aws-lambda';

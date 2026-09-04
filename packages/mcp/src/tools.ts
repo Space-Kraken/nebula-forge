@@ -1,12 +1,12 @@
 import * as fs from 'node:fs';
 import { z } from 'zod';
-import { ForgeError, loadWorkspace, renderModelExport } from '@forgecli/core';
-import { attachBinding, attachSubscription, detachBinding, detachSubscription, parseAttaches, parseSubscribes } from '@forgecli/cli/dist/lib/attach';
-import { writeArchitectureDocs } from '@forgecli/cli/dist/lib/docs';
-import { addEndpoint } from '@forgecli/cli/dist/lib/endpoints';
-import { engineFor } from '@forgecli/cli/dist/lib/engines';
-import { removeComponent } from '@forgecli/cli/dist/lib/remove';
-import { parseBindings, scaffoldComponent } from '@forgecli/cli/dist/lib/scaffold';
+import { ForgeError, loadWorkspace, renderModelExport } from '@space-kraken/nebula-forge-core';
+import { attachBinding, attachSubscription, detachBinding, detachSubscription, parseAttaches, parseSubscribes } from '@space-kraken/nebula-forge/dist/lib/attach';
+import { writeArchitectureDocs } from '@space-kraken/nebula-forge/dist/lib/docs';
+import { addEndpoint } from '@space-kraken/nebula-forge/dist/lib/endpoints';
+import { engineFor } from '@space-kraken/nebula-forge/dist/lib/engines';
+import { removeComponent } from '@space-kraken/nebula-forge/dist/lib/remove';
+import { parseBindings, scaffoldComponent } from '@space-kraken/nebula-forge/dist/lib/scaffold';
 
 /**
  * forge's MCP tools: the same semantics as the CLI, always through the

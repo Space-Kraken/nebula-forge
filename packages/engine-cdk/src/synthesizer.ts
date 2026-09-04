@@ -1,6 +1,6 @@
 import { App, DefaultStackSynthesizer } from 'aws-cdk-lib';
-import { configureNaming, ForgeError, stackNameFor } from '@forgecli/core';
-import type { Engine, SynthOptions, WorkspaceModel } from '@forgecli/core';
+import { configureNaming, ForgeError, stackNameFor } from '@space-kraken/nebula-forge-core';
+import type { Engine, SynthOptions, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { DomainStack } from './domain-stack';
 
 export interface CreateAppResult {

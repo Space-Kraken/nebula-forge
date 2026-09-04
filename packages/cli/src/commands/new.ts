@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import { Args, Flags } from '@oclif/core';
-import { getBlueprint, listBlueprints } from '@forgecli/blueprints';
+import { getBlueprint, listBlueprints } from '@space-kraken/nebula-forge-blueprints';
 import { BaseCommand } from '../lib/base';
-import { ForgeError } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
 import { engineFor, ENGINES } from '../lib/engines';
 import { detectPackageManager, runInWorkspace } from '../lib/proc';
 import { writeArchitectureDocs } from '../lib/docs';
@@ -43,7 +43,7 @@ export default class New extends BaseCommand {
     'skip-install': Flags.boolean({ description: 'do not install dependencies after scaffolding' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
     link: Flags.boolean({
-      description: 'link @forgecli packages from a local checkout (forge development only)',
+      description: 'link @space-kraken/nebula-forge packages from a local checkout (forge development only)',
       hidden: true,
     }),
   };

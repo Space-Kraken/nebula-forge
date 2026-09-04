@@ -1,5 +1,5 @@
-import { ForgeError } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import { ForgeError } from '@space-kraken/nebula-forge-core';
+import type { WorkspaceModel } from '@space-kraken/nebula-forge-core';
 
 export function resolveEnvironment(model: WorkspaceModel, requested?: string): string {
   const environment = requested ?? model.defaultEnvironment;

@@ -1,4 +1,4 @@
-import { loadWorkspace, stackNameFor } from '@forgecli/core';
+import { loadWorkspace, stackNameFor } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 
 export default class List extends BaseCommand {

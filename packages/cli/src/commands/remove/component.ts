@@ -1,5 +1,5 @@
 import { Args, Flags } from '@oclif/core';
-import { loadWorkspace, ForgeError } from '@forgecli/core';
+import { loadWorkspace, ForgeError } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../../lib/base';
 import { writeArchitectureDocs } from '../../lib/docs';
 import { canPrompt, promptConfirm } from '../../lib/interactive';

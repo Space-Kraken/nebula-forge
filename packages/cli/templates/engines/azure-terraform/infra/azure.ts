@@ -1,6 +1,6 @@
 import * as path from 'node:path';
-import { loadWorkspace } from '@forgecli/core';
-import { synthesize } from '@forgecli/engine-azure-tf';
+import { loadWorkspace } from '@space-kraken/nebula-forge-core';
+import { synthesize } from '@space-kraken/nebula-forge-engine-azure-tf';
 
 // Entry point run by `forge synth/diff/deploy` (via tsx). Writes one
 // Terraform root module per domain under .forge/azure/<env>/ — you never

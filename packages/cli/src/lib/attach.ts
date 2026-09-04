@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { bindingAccessSchema, COMPONENT_MANIFEST, ForgeError, loadWorkspace } from '@forgecli/core';
-import type { Binding } from '@forgecli/core';
+import { bindingAccessSchema, COMPONENT_MANIFEST, ForgeError, loadWorkspace } from '@space-kraken/nebula-forge-core';
+import type { Binding } from '@space-kraken/nebula-forge-core';
 
 export interface Subscription {
   bus: string;

@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { loadWorkspace, WORKSPACE_MANIFEST } from '@forgecli/core';
+import { loadWorkspace, WORKSPACE_MANIFEST } from '@space-kraken/nebula-forge-core';
 
 export interface StateConfig {
   resourceGroup: string;

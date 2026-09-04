@@ -1,5 +1,5 @@
 {
-  "name": "@forgecli/core",
+  "name": "@space-kraken/nebula-forge-core",
   "version": "0.1.0",
   "description": "Cloud-agnostic architecture model, manifests and validation for the forge CLI",
   "license": "Apache-2.0",

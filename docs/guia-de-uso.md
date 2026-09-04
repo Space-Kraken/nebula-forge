@@ -303,7 +303,7 @@ dentro del mismo stack:
 ```ts
 // domains/billing/extend.ts  (AWS)
 import { CfnOutput } from 'aws-cdk-lib';
-import type { ExtendContext } from '@forgecli/engine-cdk';
+import type { ExtendContext } from '@space-kraken/nebula-forge-engine-cdk';
 
 export default function extend(ctx: ExtendContext): void {
   // ctx.stack (el DomainStack), ctx.model, ctx.domain, ctx.environment,

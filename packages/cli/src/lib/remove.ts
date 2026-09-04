@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { COMPONENT_MANIFEST, ForgeError, loadWorkspace, resolveBinding } from '@forgecli/core';
-import type { WorkspaceModel } from '@forgecli/core';
+import { COMPONENT_MANIFEST, ForgeError, loadWorkspace, resolveBinding } from '@space-kraken/nebula-forge-core';
+import type { WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { detachAuth, detachBinding, detachMount, detachSubscription } from './attach';
 import { endpointFiles, regenerateControllersBarrel } from './endpoints';
 import { writeJson } from './templates';

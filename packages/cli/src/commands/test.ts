@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { Args, Flags } from '@oclif/core';
-import { ForgeError, loadWorkspace } from '@forgecli/core';
+import { ForgeError, loadWorkspace } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { runInWorkspace } from '../lib/proc';
 

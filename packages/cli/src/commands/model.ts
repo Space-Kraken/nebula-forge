@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core';
-import { renderModelExport } from '@forgecli/core';
+import { renderModelExport } from '@space-kraken/nebula-forge-core';
 import { BaseCommand } from '../lib/base';
 import { engineFor } from '../lib/engines';
 

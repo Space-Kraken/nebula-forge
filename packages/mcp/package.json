@@ -1,5 +1,5 @@
 {
-  "name": "@forgecli/mcp",
+  "name": "@space-kraken/nebula-forge-mcp",
   "version": "0.1.0",
   "description": "MCP server exposing forge's workspace operations as tools for agentic executors",
   "license": "Apache-2.0",
@@ -18,8 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@forgecli/cli": "workspace:^",
-    "@forgecli/core": "workspace:^",
+    "@space-kraken/nebula-forge": "workspace:^",
+    "@space-kraken/nebula-forge-core": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.8"
   },

@@ -7,8 +7,8 @@ import {
   resolveBinding,
   resourceNameFor,
   stackNameFor,
-} from '@forgecli/core';
-import type { ComponentSpec, DomainSpec, WorkspaceModel } from '@forgecli/core';
+} from '@space-kraken/nebula-forge-core';
+import type { ComponentSpec, DomainSpec, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { applyExtension } from './extend';
 import { deterministicGuid, globalName, resourceGroupName, storageAccountName, tfLabel } from './names';
 import { toNcrontab } from './schedule';
