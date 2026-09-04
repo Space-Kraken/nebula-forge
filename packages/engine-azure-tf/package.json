@@ -2,7 +2,7 @@
   "name": "@forgecli/engine-azure-tf",
   "version": "0.1.0",
   "description": "Azure synthesis engine for the forge architecture model — generates plain Terraform JSON",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

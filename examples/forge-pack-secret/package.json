@@ -1,5 +1,6 @@
 {
   "name": "forge-pack-secret",
+  "license": "Apache-2.0",
   "version": "0.1.0",
   "description": "Example forge component pack: a Secrets Manager `secret` component (bindable, read-only)",
   "main": "index.js",

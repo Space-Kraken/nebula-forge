@@ -2,7 +2,7 @@
   "name": "@forgecli/mcp",
   "version": "0.1.0",
   "description": "MCP server exposing forge's workspace operations as tools for agentic executors",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

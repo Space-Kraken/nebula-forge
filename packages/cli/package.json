@@ -2,7 +2,7 @@
   "name": "@forgecli/cli",
   "version": "0.1.0",
   "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {

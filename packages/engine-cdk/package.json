@@ -2,7 +2,7 @@
   "name": "@forgecli/engine-cdk",
   "version": "0.1.0",
   "description": "AWS CDK synthesis engine for the forge architecture model",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
