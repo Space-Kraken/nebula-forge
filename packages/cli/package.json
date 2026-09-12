@@ -3,6 +3,20 @@
   "version": "0.1.0",
   "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Space-Kraken/nebula-forge.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/Space-Kraken/nebula-forge#readme",
+  "bugs": "https://github.com/Space-Kraken/nebula-forge/issues",
+  "keywords": ["forge", "nebula-forge", "cli", "aws", "azure", "cdk", "terraform", "scaffolding", "architecture", "iac", "serverless"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {

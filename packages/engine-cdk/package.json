@@ -3,6 +3,20 @@
   "version": "0.1.0",
   "description": "AWS CDK synthesis engine for the forge architecture model",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Space-Kraken/nebula-forge.git",
+    "directory": "packages/engine-cdk"
+  },
+  "homepage": "https://github.com/Space-Kraken/nebula-forge#readme",
+  "bugs": "https://github.com/Space-Kraken/nebula-forge/issues",
+  "keywords": ["forge", "nebula-forge", "aws", "cdk", "cloudformation", "infrastructure", "iac"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

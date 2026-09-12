@@ -3,6 +3,20 @@
   "version": "0.1.0",
   "description": "Azure synthesis engine for the forge architecture model — generates plain Terraform JSON",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Space-Kraken/nebula-forge.git",
+    "directory": "packages/engine-azure-tf"
+  },
+  "homepage": "https://github.com/Space-Kraken/nebula-forge#readme",
+  "bugs": "https://github.com/Space-Kraken/nebula-forge/issues",
+  "keywords": ["forge", "nebula-forge", "azure", "terraform", "infrastructure", "iac"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
