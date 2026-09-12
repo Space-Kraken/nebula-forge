@@ -31,6 +31,28 @@ pnpm dlx @space-kraken/nebula-forge new smoke --blueprint queue-processing --no-
 cd smoke && pnpm exec forge test && pnpm exec forge synth
 ```
 
+## Connecting GitHub ↔ npm (after the first publish)
+
+Three different things people mean by "connecting":
+
+1. **npm page → GitHub repo link**: already done — it comes from the
+   `repository` field in each package.json. Nothing to configure.
+2. **Trusted publishing (OIDC)** — the real connection: npmjs.com trusts
+   `.github/workflows/release.yml` in Space-Kraken/nebula-forge to publish
+   WITHOUT any token, and every release gets the green **provenance** badge
+   (cryptographic proof the package was built from this repo by that
+   workflow). Configure it once per package AFTER the first manual publish:
+   npmjs.com → package → Settings → Trusted Publisher → GitHub Actions →
+   org `Space-Kraken`, repo `nebula-forge`, workflow `release.yml`.
+   From then on, releasing = `git tag v0.x.y && git push origin v0.x.y`.
+3. **GitHub badge/profile linking**: cosmetic (npm profile → add GitHub).
+   Optional.
+
+Never store classic npm tokens in the repo or in CI. If you ever need CI
+publishing BEFORE trusted publishing is configured, use a granular access
+token (scoped to the 5 packages, publish-only, short expiry) as a GitHub
+Actions secret — and delete it once trusted publishing is on.
+
 Notes:
 
 - `pnpm -r publish` skips private packages (root, mcp) automatically. If the

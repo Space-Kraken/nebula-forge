@@ -1,0 +1,43 @@
+# Publishes every public @space-kraken/nebula-forge-* package when a v* tag
+# is pushed. Designed for npm TRUSTED PUBLISHING (OIDC): no npm token stored
+# anywhere — npmjs.com is configured to trust THIS repo + THIS workflow file,
+# and packages get the "provenance" badge automatically.
+#
+# One-time setup on npmjs.com (after the first manual publish), per package:
+#   package → Settings → Trusted Publisher → GitHub Actions
+#     organization: Space-Kraken · repository: nebula-forge · workflow: release.yml
+#
+# Until that is configured, this workflow will fail at the publish step —
+# that is intentional (it can never leak credentials it does not have).
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for npm trusted publishing / provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm test
+
+      # pnpm skips private packages (root, mcp) and rewrites workspace:^ to
+      # real versions. --no-git-checks: the tag checkout is a detached HEAD.
+      - run: pnpm -r publish --access public --no-git-checks
