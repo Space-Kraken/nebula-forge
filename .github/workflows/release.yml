@@ -29,10 +29,13 @@ jobs:
       # specifying it here too makes action-setup refuse (version mismatch).
       - uses: pnpm/action-setup@v4
 
+      # No registry-url on purpose: it writes an .npmrc expecting a
+      # NODE_AUTH_TOKEN secret that does not exist, and pnpm would fall back
+      # to that garbage token when OIDC fails. Trusted publishing (OIDC) is
+      # the ONLY auth path here.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
