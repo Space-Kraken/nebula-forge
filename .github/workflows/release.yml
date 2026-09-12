@@ -41,6 +41,15 @@ jobs:
       - run: pnpm run build
       - run: pnpm test
 
-      # pnpm skips private packages (root, mcp) and rewrites workspace:^ to
-      # real versions. --no-git-checks: the tag checkout is a detached HEAD.
-      - run: pnpm -r publish --access public --no-git-checks
+      # Publish with the npm CLI (the trusted-publishing reference client,
+      # needs >=11.5.1). pnpm still packs each tarball so workspace:^ deps
+      # are rewritten to real versions; mcp stays private and is not packed.
+      - run: npm install -g npm@latest
+      - run: |
+          mkdir -p "$RUNNER_TEMP/tarballs"
+          for p in core engine-cdk engine-azure-tf blueprints cli; do
+            (cd "packages/$p" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
+          done
+          for t in "$RUNNER_TEMP"/tarballs/*.tgz; do
+            npm publish "$t" --access public
+          done
