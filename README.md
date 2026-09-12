@@ -1,241 +1,243 @@
-# forge — Modern Cloud Architecture Accelerator
+# Nebula Forge
 
-CLI estilo Angular para construir soluciones AWS bien arquitecturadas sin ser
-arquitecto. El CLI es dueño de la estructura, la organización y las buenas
-prácticas de infraestructura; el equipo se concentra en la lógica de negocio.
+An Angular-style CLI for building well-architected AWS solutions without
+being an architect. The CLI owns the structure, the organization and the
+infrastructure best practices; your team focuses on business logic.
 
 ```bash
-forge new mi-app --blueprint queue-processing
-cd mi-app
+forge new my-app --blueprint queue-processing
+cd my-app
 forge generate module payments
 forge generate component api --module payments --type http-api
 forge test payments
 forge deploy payments --env dev
 ```
 
-📖 **[Guía de uso](docs/guia-de-uso.md)** — el modelo mental (workspace →
-módulos → componentes → acoples), el flujo completo y las convenciones.
-🔧 **[Desarrollo local](docs/desarrollo-local.md)** — correr forge desde el
-checkout, workspaces `--link` y ciclo de pruebas.
-📚 **[Referencia del CLI](docs/referencia-cli.md)** — cada comando, cada flag,
-alias (`g m`, `g c`, `g e`) y la chuleta.
+📖 **[User guide](docs/guia-de-uso.md)** *(Spanish)* — the mental model
+(workspace → modules → components → couplings), the full workflow and the
+conventions.
+🔧 **[Local development](docs/desarrollo-local.md)** *(Spanish)* — running
+forge from the checkout, `--link` workspaces and the test loop.
+📚 **[CLI reference](docs/referencia-cli.md)** *(Spanish)* — every command,
+every flag, aliases (`g m`, `g c`, `g e`) and the cheat sheet.
 
-## Por qué existe
+## Why it exists
 
-- No todos los integrantes de un equipo dominan arquitectura AWS: backends
-  excelentes terminan armando soluciones tricky o poco escalables.
-- Los mega-stacks monolíticos obligan a testear y desplegar todo el sistema
-  para cambiar algo mínimo. forge separa **un stack por dominio de negocio**:
-  cada módulo se testea y despliega de forma independiente.
-- Convención sobre configuración, como Angular: `new` y `generate` producen la
-  estructura correcta; nadie decide dónde va cada cosa.
+- Not everyone on a team has deep AWS architecture skills: excellent backend
+  developers end up building tricky or poorly scalable solutions.
+- Monolithic mega-stacks force you to test and deploy the whole system to
+  change one small thing. forge separates **one stack per business domain**:
+  each module is tested and deployed independently.
+- Convention over configuration, like Angular: `new` and `generate` produce
+  the right structure; nobody has to decide where things go.
 
-## Conceptos
+## Concepts
 
-| Concepto | Qué es | En AWS |
+| Concept | What it is | On AWS |
 |---|---|---|
-| **Workspace** | El proyecto (`forge.json`: motor + entornos) | — |
-| **Módulo (dominio)** | Un dominio de negocio, aislado y desplegable | 1 stack de CloudFormation por entorno |
-| **Componente** | Una pieza de arquitectura dentro del módulo | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus`, `gateway`, `auth`, `email` |
-| **Binding** | Dependencia declarada entre componentes | IAM de mínimo privilegio + env vars de descubrimiento (`TABLE_X_NAME`, `QUEUE_X_URL`) |
-| **Blueprint** | Arquitectura de referencia completa | `serverless-api`, `queue-processing`, `scheduled-tasks`, `web-app`, `event-driven` |
+| **Workspace** | The project (`forge.json`: engine + environments) | — |
+| **Module (domain)** | A business domain, isolated and deployable | 1 CloudFormation stack per environment |
+| **Component** | A piece of architecture inside the module | `http-api`, `queue-worker`, `function`, `table`, `bucket`, `topic`, `static-site`, `event-bus`, `gateway`, `auth`, `email` |
+| **Binding** | A declared dependency between components | Least-privilege IAM + discovery env vars (`TABLE_X_NAME`, `QUEUE_X_URL`) |
+| **Blueprint** | A complete reference architecture | `serverless-api`, `queue-processing`, `scheduled-tasks`, `web-app`, `event-driven` |
 
-Los bindings **no cruzan dominios**, con una única excepción: los `event-bus`
-(EventBridge). Un dominio publica a `otro-dominio/bus` y un `queue-worker` (o
-una `function`, para reacciones ligeras sin DLQ) se suscribe con
-`subscriptions` en su manifest — el bus se referencia por **nombre
-determinístico**, sin exports de CloudFormation, así cada stack sigue
-desplegándose por separado. `static-site` entrega S3 privado + CloudFront (SPA
-fallback, WAF opcional, dominio propio con ACM + Route53, y `config.api` para
-servir el API del módulo detrás de la misma distribución en `/api/*` — mismo
-origen, sin CORS). Los gateways/http-apis aceptan CORS explícito y dominio
-custom regional cuando sí hay orígenes externos.
+Bindings **never cross domains**, with a single exception: `event-bus`
+components (EventBridge). One domain publishes to `other-domain/bus` and a
+`queue-worker` (or a `function`, for lightweight reactions without a DLQ)
+subscribes via `subscriptions` in its manifest — the bus is referenced by
+**deterministic name**, with no CloudFormation exports, so every stack keeps
+deploying on its own. `static-site` ships a private S3 bucket + CloudFront
+(SPA fallback, optional WAF, custom domain with ACM + Route53, and
+`config.api` to serve the module's API behind the same distribution at
+`/api/*` — same origin, no CORS). Gateways and http-apis accept explicit
+CORS and a regional custom domain when external origins genuinely exist.
 
-La convención para APIs es **una Lambda por dominio**: un componente
-`http-api` por módulo, y fusion rutea los controllers de ese dominio dentro de
-la Lambda — por eso las Lambdas son hexagonales. ¿Un solo API para todo el
-proyecto? Crea un `gateway` compartido y monta los `http-api` con `--mount
-platform/edge`: el gateway publica la unión de rutas integrando cada Lambda
-por nombre determinístico (1 API para N dominios, N APIs, o mixto).
+The API convention is **one Lambda per domain**: one `http-api` component
+per module, with fusion routing that domain's controllers inside the Lambda
+— which is why the Lambdas are hexagonal. Want a single API for the whole
+project? Create a shared `gateway` and mount the `http-api`s with `--mount
+platform/edge`: the gateway publishes the union of routes, integrating each
+Lambda by deterministic name (1 API for N domains, N APIs, or a mix).
 
-### Buenas prácticas incorporadas
+### Best practices built in
 
-Cada componente sale de fábrica con lo que un arquitecto exigiría: colas con
-DLQ y reintentos parciales (`reportBatchItemFailures`), DynamoDB on-demand con
-point-in-time recovery, S3 cifrado/bloqueado/SSL-only, X-Ray activo, Lambdas
-ARM64 en Node 24, retención de recursos con estado en producción y tags de
-app/dominio/entorno en todo.
+Every component leaves the factory with what an architect would demand:
+queues with DLQs and partial-batch retries (`reportBatchItemFailures`),
+on-demand DynamoDB with point-in-time recovery, encrypted/blocked/SSL-only
+S3, X-Ray enabled, ARM64 Lambdas on Node 24, stateful-resource retention in
+production and app/domain/environment tags on everything.
 
 ### Lambdas: hexagonal + fusion
 
-Las Lambdas TypeScript generadas siguen **arquitectura hexagonal** sobre
+Generated TypeScript Lambdas follow **hexagonal architecture** on
 [@fusion-framework/server](https://github.com/acyclicstudent/fusion-server):
 
-- `src/handler.ts` — composition root (solo wiring)
-- `src/application/` — use cases (`@UseCase()` + `UCExecutor`): la lógica de negocio
-- `src/domain/ports/` — puertos (interfaces) de los que depende el negocio
-- `src/infrastructure/` — adaptadores: controllers/handlers de entrada, repositorios de salida
+- `src/handler.ts` — composition root (wiring only)
+- `src/application/` — use cases (`@UseCase()` + `UCExecutor`): the business logic
+- `src/domain/ports/` — ports (interfaces) the business logic depends on
+- `src/infrastructure/` — adapters: inbound controllers/handlers, outbound repositories
 
-Notas técnicas (verificadas contra fusion 1.4.1):
-- fusion rutea HTTP por coincidencia exacta `httpMethod + resource` → el motor
-  genera **API Gateway REST (payload v1)** con un resource por ruta declarada
-  en `component.json`.
-- La inyección debe usar tokens explícitos (`@Executor()`, `@Inject('token')`):
-  esbuild no emite decorator metadata.
-- Los workers SQS usan un adaptador generado por forge (no el pipeline de
-  listeners de fusion, que captura errores y confirmaría mensajes fallidos);
-  la lógica sigue en use cases de fusion.
+Technical notes (verified against fusion 1.4.1):
+- fusion routes HTTP by exact `httpMethod + resource` match → the engine
+  emits **API Gateway REST (payload v1)** with one resource per route
+  declared in `component.json`.
+- Injection must use explicit tokens (`@Executor()`, `@Inject('token')`):
+  esbuild does not emit decorator metadata.
+- SQS workers use a forge-generated adapter (not fusion's listener pipeline,
+  which captures errors and would ack failed messages); the logic still
+  lives in fusion use cases.
 
-### Acoples inferidos
+### Inferred couplings
 
-Al generar un recurso en una terminal, el CLI mira el workspace e **infiere a
-qué se puede acoplar**: crear una tabla pregunta qué componentes la usarán
-(edita el manifest del consumidor), crear una lambda pregunta a qué recursos
-se conecta, y crear un worker o función ofrece suscribirla a un bus de
-eventos. Cada respuesta tiene su flag equivalente (`--attach api:read-write`,
-`--subscribe platform/events:source=orders`), así que en CI nada pregunta.
-Los endpoints se acoplan con `forge generate endpoint`: los controllers viven
-en un barrel generado (`src/infrastructure/controllers/index.ts`) que forge
-reescribe — nunca edita código a mano.
+When you generate a resource on a terminal, the CLI looks at the workspace
+and **infers what it can couple to**: creating a table asks which components
+will use it (editing the consumer's manifest), creating a lambda asks what
+resources it connects to, and creating a worker or function offers to
+subscribe it to an event bus. Every prompt has an equivalent flag
+(`--attach api:read-write`, `--subscribe platform/events:source=orders`), so
+nothing prompts in CI. Endpoints attach through `forge generate endpoint`:
+controllers live in a generated barrel
+(`src/infrastructure/controllers/index.ts`) that forge rewrites — it never
+patches your code in place.
 
-El ciclo de vida completo se gestiona después de crear: `forge attach` /
-`forge detach` agregan o quitan acoples de componentes existentes (con
-validación y rollback sobre los manifests), y `forge remove component|endpoint`
-elimina piezas — negándose mientras otros componentes las usen, o
-desacoplándolas primero con `--force`, para que nunca quede una referencia
-colgante.
+The full lifecycle is managed after creation too: `forge attach` /
+`forge detach` add or remove couplings on existing components (with
+validation and rollback over the manifests), and
+`forge remove component|endpoint` deletes pieces — refusing while other
+components use them, or detaching them first with `--force`, so a dangling
+reference can never survive.
 
-### Documentación viva (para humanos y para IAs)
+### Living documentation (for humans and for AIs)
 
-`forge docs` genera `docs/architecture.md` con un diagrama Mermaid del
-workspace (dominios como subgrafos, componentes tipados, bindings como
-flechas) y una tabla por módulo con sus env vars inyectadas — y `AGENTS.md`
-en la raíz: las reglas del workspace, la arquitectura actual y la chuleta de
-comandos en el formato que leen Claude Code, Cursor y Copilot, para que
-cualquier IA sepa cómo trabajar el proyecto sin romperlo. Ambos se regeneran
-automáticamente con cada `forge new` / `forge generate`, así nunca mienten.
-Mermaid renderiza nativo en GitHub/GitLab.
+`forge docs` generates `docs/architecture.md` with a Mermaid diagram of the
+workspace (domains as subgraphs, typed components, bindings as arrows) and a
+per-module table with its injected env vars — plus `AGENTS.md` at the root:
+the workspace rules, the current architecture and the command cheat sheet in
+the format Claude Code, Cursor and Copilot read, so any AI opened on the
+project knows how to work on it without breaking it. Both regenerate
+automatically on every `forge new` / `forge generate`, so they never lie.
+Mermaid renders natively on GitHub/GitLab.
 
-### Extensibilidad: escape hatch y packs
+### Extensibility: escape hatch and packs
 
-Cuando forge no modela algo, no lo abandonas: `domains/<módulo>/extend.ts`
-recibe el stack del dominio (o el documento Terraform en Azure) y ahí escribes
-CDK/TF crudo, dentro de las mismas fronteras de dominio. Y cuando ese algo es
-reutilizable, se convierte en un **component pack**: un paquete npm que agrega
-tipos de componente nuevos (`forge.json` → `"packs": [...]`) con schema
-validado, bindings de mínimo privilegio, scaffolding y presencia en docs —
-como el Steam Workshop, pero de arquitectura. Ejemplo completo en
-`examples/forge-pack-secret/`.
+When forge doesn't model something, you don't abandon forge:
+`domains/<module>/extend.ts` receives the domain's stack (or the Terraform
+document on Azure) and you write raw CDK/TF there, inside the same domain
+boundaries. And when that something is reusable, it becomes a **component
+pack**: an npm package that adds new component types (`forge.json` →
+`"packs": [...]`) with a validated schema, least-privilege bindings,
+scaffolding and presence in the docs — like the Steam Workshop, but for
+architecture. Complete example in `examples/forge-pack-secret/`.
 
-### Testing por dominio
+### Per-domain testing
 
-Los componentes que ejecutan código (`function`, `http-api`, `queue-worker`)
-nacen con test unitario, y cada módulo con un snapshot test de su template de
-CloudFormation. `forge test payments` corre solo ese dominio; cuando cambias
-la infraestructura a propósito, `forge test payments --update` acepta el nuevo
-snapshot.
+Components that run code (`function`, `http-api`, `queue-worker`) are born
+with a unit test, and every module with a snapshot test of its
+CloudFormation template. `forge test payments` runs only that domain; when
+you change infrastructure on purpose, `forge test payments --update` accepts
+the new snapshot.
 
 ## Multi-cloud: Azure (beta)
 
-El mismo modelo, otro motor: `forge new mi-app --engine azure-terraform`
-genera un workspace cuyo `forge synth/diff/deploy` produce **Terraform JSON**
-(un root module por dominio, estado independiente) y ejecuta el binario de
-`terraform` por ti — tu equipo nunca escribe ni lee HCL.
+Same model, different engine: `forge new my-app --engine azure-terraform`
+generates a workspace whose `forge synth/diff/deploy` produces **plain
+Terraform JSON** (one root module per domain, independent state) and drives
+the `terraform` binary for you — your team never writes or reads HCL.
 
-| Modelo | Azure |
+| Model | Azure |
 |---|---|
-| módulo | Resource Group + estado Terraform propio |
-| `function` / `queue-worker` | Function Apps (Node 20, zip empaquetado por forge) / Service Bus queue + DLQ |
-| `table` / `bucket` / `topic` | Cosmos DB serverless / Blob container / Service Bus topic |
-| `event-bus` | Event Grid topic por nombre determinístico (cross-domain sin estado compartido) |
-| bindings | Managed identity + RBAC de mínimo privilegio + app settings de descubrimiento |
+| module | Resource Group + its own Terraform state |
+| `function` / `queue-worker` | Function Apps (Node 20, forge-packaged zip) / Service Bus queue + DLQ |
+| `table` / `bucket` / `topic` | Serverless Cosmos DB / Blob container / Service Bus topic |
+| `event-bus` | Event Grid topic by deterministic name (cross-domain with no shared state) |
+| bindings | Managed identity + least-privilege RBAC + discovery app settings |
 
-Aún no en Azure: `http-api` (llega con fusion-azure) y `static-site` (Front
-Door) — el CLI los rechaza con un error claro. Para equipos:
-`forge bootstrap` provisiona el backend remoto de estado (storage account
-determinístico), lo registra en `forge.json` y migra el estado local.
+Not on Azure yet: `http-api` (arrives with fusion-azure) and `static-site`
+(Front Door) — the CLI rejects them with a clear error. For teams:
+`forge bootstrap` provisions the remote state backend (deterministic storage
+account), records it in `forge.json` and migrates local state.
 
-## Integración en plataformas corporativas
+## Corporate platform integration
 
-forge no es solo un generador standalone — está diseñado para operar DENTRO
-de un marco corporativo, donde la plataforma define el contrato y forge
-conforma:
+forge is not just a standalone generator — it is designed to operate INSIDE
+a corporate framework, where the platform defines the contract and forge
+conforms:
 
-- **Convenciones heredadas**: `"conventions"` en forge.json apunta a un
-  paquete npm de la organización que exporta `{ naming, tags }` — la regla
-  vive una vez; desviarse exige un bloque `overrides` explícito que carga
-  con warning. Subir la versión del paquete es un evento de migración.
-- **Modelo exportable**: `forge model --json` emite el contrato versionado
-  (nombres físicos renderizados o `"autogenerated"`, tags resueltos,
-  manifiesto de capacidades por componente) para generadores de policies
-  IAM y validadores externos — offline, sin credenciales, con test
-  anti-drift contra el CloudFormation/Terraform real.
-- **Identidad de despliegue**: `environments.<env>.deploy` apunta al
-  `cdk bootstrap` de la landing zone (qualifier, permissions boundary,
-  execution policies). forge nunca toca credenciales.
-- **Tags propios controlables**: `tags.builtin` renombra o apaga
-  `forge:app/domain/environment` cuando la plataforma tiene su propio
-  esquema.
-- **Servidor MCP** (`@space-kraken/nebula-forge-mcp`): las operaciones del workspace como
-  tools para ejecutores agentic — no-interactivo, transaccional, con los
-  errores accionables de forge.
+- **Inherited conventions**: `"conventions"` in forge.json points at an
+  org-owned npm package exporting `{ naming, tags }` — the rule lives once;
+  deviating requires an explicit `overrides` block that loads with a
+  warning. Bumping the package version is a migration event.
+- **Exportable model**: `forge model --json` emits the versioned contract
+  (rendered physical names or `"autogenerated"`, resolved tags, a capability
+  manifest per component) for IAM policy generators and external validators
+  — offline, credential-free, with an anti-drift test against the real
+  CloudFormation/Terraform output.
+- **Deployment identity**: `environments.<env>.deploy` points at the landing
+  zone's `cdk bootstrap` (qualifier, permissions boundary, execution
+  policies). forge never touches credentials.
+- **Controllable builtin tags**: `tags.builtin` renames or disables
+  `forge:app/domain/environment` when the platform has its own scheme.
+- **MCP server** (`@space-kraken/nebula-forge-mcp`): the workspace
+  operations as tools for agentic executors — non-interactive,
+  transactional, with forge's actionable errors.
 
-## Estructura del monorepo
+## Monorepo structure
 
 ```
 packages/
-  core/             Modelo agnóstico: manifiestos, validación (zod), loader, contrato Engine
-  engine-cdk/       Motor AWS CDK: DomainStack, builders por tipo, bindings → IAM
-  engine-azure-tf/  Motor Azure: Terraform JSON puro, RBAC, Event Grid, empaquetado de Functions
-  blueprints/       Arquitecturas de referencia
+  core/             Cloud-agnostic model: manifests, validation (zod), loader, Engine contract
+  engine-cdk/       AWS CDK engine: DomainStack, per-type builders, bindings → IAM
+  engine-azure-tf/  Azure engine: plain Terraform JSON, RBAC, Event Grid, Functions packaging
+  blueprints/       Reference architectures
   cli/              oclif: new, generate, attach/detach/remove, docs, test, synth, diff, deploy, model
-  mcp/              Servidor MCP: las operaciones de forge como tools para agentes
+  mcp/              MCP server: forge's operations as tools for agents
 ```
 
-`core` no conoce CDK: define el modelo (workspace → dominios → componentes →
-bindings) y el contrato `Engine`. `engine-cdk` es la primera implementación;
-otros motores (otras nubes) implementan el mismo contrato — ese es el camino
-multi-cloud.
+`core` knows nothing about CDK: it defines the model (workspace → domains →
+components → bindings) and the `Engine` contract. `engine-cdk` is the first
+implementation; other engines (other clouds) implement the same contract —
+that is the multi-cloud path.
 
-## Desarrollo
+## Development
 
 ```bash
 pnpm install
-pnpm run build        # tsc -b con project references
-pnpm test             # tests de core y engine-cdk
+pnpm run build        # tsc -b with project references
+pnpm test             # tests across all packages
 
-# Probar el CLI contra el checkout local (deps link:)
+# Try the CLI against the local checkout (link: deps)
 node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 ```
 
-## Comandos
+## Commands
 
-| Comando | Descripción |
+| Command | Description |
 |---|---|
-| `forge new <nombre> [--blueprint <id>] [--engine …] [--profile <aws>\|--subscription <az>]` | Crea un workspace; pregunta credenciales en terminal (vacío = default) |
-| `forge blueprints` | Lista las arquitecturas de referencia |
-| `forge generate module <nombre>` | Nuevo dominio (stack independiente) |
-| `forge generate component <n> -m <mod> -t <tipo>` | Nuevo componente; en terminal **infiere los acoples y pregunta** (a quién se conecta, quién lo usa, a qué bus se suscribe). Flags para CI: `--bind`, `--attach`, `--subscribe`, `--no-interactive` |
-| `forge generate endpoint <n> -m <mod> [--method GET --route /x/{id}]` | Acopla un endpoint a la Lambda del dominio: ruta en API Gateway + controller fusion + use case + test, siempre en sincronía |
-| `forge attach <comp> -m <mod> [--bind t:acceso] [--subscribe bus:…]` | Acopla un componente **existente** (interactivo sin flags) |
-| `forge detach <comp> -m <mod> [--bind t] [--subscribe bus]` | Desacopla bindings/suscripciones (interactivo: checkbox de acoples actuales) |
-| `forge remove module\|component\|endpoint <n> [--force]` | Elimina piezas; se niega si algo las usa (`--force` desacopla primero) |
-| `forge remove endpoint <n> -m <mod>` | Elimina un endpoint: ruta + controller + use case + test + barrel |
-| `forge list` | Muestra la arquitectura del workspace |
-| `forge docs [--print]` | Genera `docs/architecture.md` (diagrama Mermaid + tablas); se regenera solo con cada `new`/`generate` |
-| `forge test [módulo]` | Tests unitarios + de infraestructura |
-| `forge synth [módulo] [-e env]` | Genera CloudFormation |
-| `forge diff [módulo] [-e env]` | Qué cambiaría un deploy |
-| `forge deploy <módulo> [-e env]` | Despliega un dominio (`--all` para todos, explícito) |
-| `forge bootstrap [-e env]` | Prepara el entorno: `cdk bootstrap` (AWS) o backend remoto de estado + migración (Azure). Idempotente |
+| `forge new <name> [--blueprint <id>] [--engine …] [--profile <aws>\|--subscription <az>]` | Create a workspace; prompts for credentials on a terminal (empty = default) |
+| `forge blueprints` | List the reference architectures |
+| `forge generate module <name>` | New domain (independent stack) |
+| `forge generate component <n> -m <mod> -t <type>` | New component; on a terminal it **infers the couplings and asks** (what it connects to, who uses it, which bus it subscribes to). CI flags: `--bind`, `--attach`, `--subscribe`, `--no-interactive` |
+| `forge generate endpoint <n> -m <mod> [--method GET --route /x/{id}]` | Attach an endpoint to the domain's Lambda: API Gateway route + fusion controller + use case + test, always in sync |
+| `forge attach <comp> -m <mod> [--bind t:access] [--subscribe bus:…]` | Attach couplings to an **existing** component (interactive without flags) |
+| `forge detach <comp> -m <mod> [--bind t] [--subscribe bus]` | Detach bindings/subscriptions (interactive: checkbox of current couplings) |
+| `forge remove module\|component\|endpoint <n> [--force]` | Remove pieces; refuses while something uses them (`--force` detaches first) |
+| `forge remove endpoint <n> -m <mod>` | Remove an endpoint: route + controller + use case + test + barrel |
+| `forge list` | Show the workspace architecture |
+| `forge docs [--print]` | Generate `docs/architecture.md` (Mermaid diagram + tables); auto-regenerates on every `new`/`generate` |
+| `forge model --json [--env <e>]` | Export the versioned machine-readable model (names, tags, capabilities) for external tooling |
+| `forge test [module]` | Unit + infrastructure tests |
+| `forge synth [module] [-e env]` | Generate CloudFormation |
+| `forge diff [module] [-e env]` | What a deploy would change |
+| `forge deploy <module> [-e env]` | Deploy one domain (`--all` for everything, explicitly) |
+| `forge bootstrap [-e env]` | Prepare the environment: `cdk bootstrap` (AWS) or remote state backend + migration (Azure). Idempotent |
 
 ## Roadmap
 
-- [ ] Publicar `@space-kraken/nebula-forge-*` en npm
-- [ ] Azure 1b: `http-api` con fusion-azure, `static-site` con Front Door, Entra External ID, ACS email
-- [ ] Frontend en repo separado del backend (multi-repo: workspaces front/back independientes que se referencian) — diseño pendiente
-- [ ] `state-machine` (Step Functions) para orquestación
-- [ ] `service` (ECS) para microservicios donde Lambda no alcanza, y soporte de VPCs custom
-- [ ] Contratos tipados para eventos entre dominios
-- [ ] Pipeline CI/CD generado (deploy por dominio)
-- [ ] Segundo motor (otra nube) sobre el mismo modelo
+- [ ] Publish `@space-kraken/nebula-forge-*` on npm
+- [ ] Azure 1b: `http-api` with fusion-azure, `static-site` with Front Door, Entra External ID, ACS email
+- [ ] Frontend in a repo separate from the backend (multi-repo: independent front/back workspaces that reference each other) — design pending
+- [ ] `state-machine` (Step Functions) for orchestration
+- [ ] `service` (ECS) for microservices where Lambda isn't enough, plus custom VPC support
+- [ ] Typed contracts for cross-domain events
+- [ ] Generated CI/CD pipeline (per-domain deploys)
+- [ ] More engines (other clouds) on the same model
