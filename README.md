@@ -233,7 +233,7 @@ node packages/cli/bin/run.js new demo --blueprint queue-processing --link
 
 ## Roadmap
 
-- [ ] Publish `@space-kraken/nebula-forge-*` on npm
+- [x] Publish `@space-kraken/nebula-forge-*` on npm (0.1.x beta, trusted publishing + provenance)
 - [ ] Azure 1b: `http-api` with fusion-azure, `static-site` with Front Door, Entra External ID, ACS email
 - [ ] Frontend in a repo separate from the backend (multi-repo: independent front/back workspaces that reference each other) — design pending
 - [ ] `state-machine` (Step Functions) for orchestration
