@@ -108,9 +108,25 @@ target for reliable processing (retries + DLQ).
 
 ## Org naming + tags (forge.json "naming"/"tags"/"conventions")
 
-`conventions` inherits the contract from a package (npm name or "./path",
-createRequire like packs — see `core/src/conventions.ts`) exporting
-{naming?, tags?}. With it set, inline naming/tags are a LOAD ERROR; explicit
+`conventions` inherits the contract from a package (npm name — subpaths like
+"@org/standards/forge" work — or "./path", createRequire like packs — see
+`core/src/conventions.ts`) exporting {schemaVersion?, naming?, tags?,
+environments?} OR a function `(ctx) => contract` (ADAPTER: ctx = {root, name,
+engine, environments without deploy, forge:{version,
+conventionsSchemaVersion}}; sync, deterministic, errors surface as
+"Conventions X failed: …"). The adapter is THE compatibility seam: orgs keep
+a tool-agnostic standards package and map it onto forge's vocabulary in code
+(example `examples/forge-conventions-adapter/`, exercised by core tests) —
+never add a mapping DSL or new tokens to forge for one org. `schemaVersion`
+(CONVENTIONS_SCHEMA_VERSION = 1; renames bump it) mismatches fail at load;
+`validateConventions` is exported so adapters unit-test without a workspace.
+`environments.<env>.deploy` in the contract merges onto forge.json
+environments (loader) so engines/CLI keep reading `envSpec.deploy`; once
+the contract declares environments, an inline deploy is a LOAD ERROR
+(deviation: `overrides.environments.<env>.deploy`, replaces whole). `forge
+new --conventions <pkg>[/subpath][@version]` pins the package in
+devDependencies and writes the key AFTER install (an npm package cannot load
+before). With conventions set, inline naming/tags are a LOAD ERROR; explicit
 deviations live under `overrides` (naming replaces whole, tags merge per
 key) and surface as `model.warnings` — commands print them via
 `BaseCommand.loadModel()` (all commands load through it, never bare
@@ -153,8 +169,14 @@ deployed workspace REPLACES resources (scaffolded README + AGENTS.md warn).
 
 Plumbing, never credentials: `qualifier` goes to the per-stack
 DefaultStackSynthesizer in createApp (deploy assumes THAT bootstrap's roles)
-and `bootstrapArgs` in cli/engines/aws-cdk.ts appends
---qualifier/--custom-permissions-boundary (policy NAME)/
+and `permissionsBoundary` ALSO becomes the stack's `PermissionsBoundary.fromName`
+(every AWS::IAM::Role the stack creates — custom-resource providers and
+extend.ts included — carries it; landing zones only allow iam:CreateRole with
+it). `bootstrapArgs` in cli/engines/aws-cdk.ts appends
+--qualifier + --toolkit-stack-name CDKToolkit-<qualifier> (environments sharing
+an account get separate bootstrap stacks; deploy finds the bootstrap via the
+/cdk-bootstrap/<qualifier>/version SSM parameter, never by stack name)/
+--custom-permissions-boundary (policy NAME)/
 --cloudformation-execution-policies (repeated) to cdk bootstrap. Without the
 block, argv and synthesizer are byte-identical to before (tested).
 azure-terraform rejects the block at load. Zero STS calls — OIDC federation

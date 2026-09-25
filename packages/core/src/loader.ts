@@ -98,8 +98,20 @@ export function loadWorkspace(startDir: string): WorkspaceModel {
   assertValidNaming(conventions.naming);
   assertValidTags(conventions.tags, manifest.engine);
   configureNaming(conventions.naming);
+  // Inherited deploy identity lands on the environments themselves, so
+  // engines and the CLI keep reading environments.<env>.deploy untouched.
+  const environments = conventions.deploy
+    ? Object.fromEntries(
+        Object.entries(manifest.environments).map(([env, spec]) => {
+          const deploy = conventions.deploy![env];
+          const { deploy: _inline, ...rest } = spec;
+          return [env, deploy ? { ...rest, deploy } : rest];
+        }),
+      )
+    : manifest.environments;
   const model: WorkspaceModel = {
     ...manifest,
+    environments,
     naming: conventions.naming,
     tags: conventions.tags,
     root,

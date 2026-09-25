@@ -1,0 +1,12 @@
+{
+  "name": "acme-cloud-standards",
+  "license": "Apache-2.0",
+  "version": "0.1.0",
+  "description": "Example org standards package with its own vocabulary, plus the adapter that maps it onto forge's conventions contract",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./forge": "./forge.js"
+  },
+  "keywords": ["forge", "forge-conventions", "aws", "naming", "tags"]
+}

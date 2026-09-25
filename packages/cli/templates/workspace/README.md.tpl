@@ -61,12 +61,20 @@ inherit it instead of copying it — the rule lives once:
 
 ```jsonc
 {
-  "conventions": "@your-org/forge-conventions"  // exports { naming?, tags? }
+  "conventions": "@your-org/cloud-standards/forge"  // exports { naming?, tags?, environments? }
 }
 ```
 
-With `conventions` set, inline `naming`/`tags` become a load error; deliberate
-deviations go under `"overrides": { … }` and load with a visible warning. The
+(`forge new <name> --conventions <pkg>[@version]` scaffolds it pinned.) The
+module exports the contract, or a function `(ctx) => contract` — an ADAPTER
+that maps the org's own standards package onto forge's vocabulary (ctx:
+workspace root, name, engine, environments). It may also carry
+`environments.<env>.deploy` (qualifier, permissions boundary, execution
+policies) so the landing zone's bootstrap identity is inherited too.
+
+With `conventions` set, inline `naming`/`tags` (and `deploy`, once the
+contract declares environments) become a load error; deliberate deviations
+go under `"overrides": { naming?, tags?, environments? }` and load with a visible warning. The
 contract's version pin is the package's version in `package.json` (pin it
 exactly): **bumping the conventions package is a migration event** — names are
 identity, so a changed pattern replaces resources.
@@ -96,8 +104,12 @@ permissions boundary), point the environment at it:
 }
 ```
 
-`forge bootstrap` passes these to `cdk bootstrap`, and synth configures the
-qualifier so `forge deploy` assumes THAT bootstrap's roles. forge never
+`forge bootstrap` passes these to `cdk bootstrap` (a custom qualifier gets
+its own bootstrap stack, `CDKToolkit-<qualifier>`, so several environments
+can share one account), and synth configures the qualifier so `forge deploy`
+assumes THAT bootstrap's roles. `permissionsBoundary` is also attached to
+every IAM role the stacks create, which landing zones that only allow
+`iam:CreateRole` with a boundary require. forge never
 handles credentials itself: in CI, federate with OIDC (e.g. GitHub Actions
 `aws-actions/configure-aws-credentials` assuming a role whose trust policy
 allows your repo) and run `forge deploy` — CDK picks up the ambient

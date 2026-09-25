@@ -53,6 +53,62 @@ export interface ScaffoldWorkspaceOptions {
   link: boolean;
   /** Synthesis engine for the workspace; defaults to aws-cdk. */
   engine?: string;
+  /**
+   * Org conventions to inherit: an npm package ("@org/standards/forge",
+   * optionally "@1.2.3") or a local path ("./conventions.js"). The npm form
+   * lands in devDependencies here; the forge.json key is written by
+   * applyConventions once the package can resolve (after install).
+   */
+  conventions?: string;
+}
+
+export interface ConventionsRef {
+  /** What forge.json "conventions" receives (package name with subpath, or path). */
+  ref: string;
+  /** npm package to install (name without subpath), undefined for local paths. */
+  packageName?: string;
+  /** Exact version to pin when given as name@version; "latest" otherwise. */
+  version?: string;
+}
+
+/** Parses "--conventions" ("@scope/pkg/forge@1.2.0", "pkg", "./file.js"). */
+export function parseConventionsRef(spec: string): ConventionsRef {
+  const value = spec.trim();
+  if (!value) throw new ForgeError('--conventions needs a package name or a path');
+  if (value.startsWith('.') || value.startsWith('/')) return { ref: value };
+  const at = value.lastIndexOf('@');
+  const [name, version] = at > 0 ? [value.slice(0, at), value.slice(at + 1)] : [value, undefined];
+  const segments = name.split('/');
+  const packageName = name.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
+  if (!packageName || (name.startsWith('@') && segments.length < 2)) {
+    throw new ForgeError(`Invalid conventions package "${spec}"`, 'Expected <pkg>[/subpath][@version] or a ./path.');
+  }
+  return { ref: name, packageName, version };
+}
+
+/** Writes forge.json "conventions" without loading (the package may not be installed yet). */
+export function applyConventionsUnchecked(root: string, ref: string): void {
+  const file = path.join(root, WORKSPACE_MANIFEST);
+  const manifest = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+  const { name, engine, defaultEnvironment, ...rest } = manifest;
+  writeJson(file, { name, engine, defaultEnvironment, conventions: ref, ...rest });
+}
+
+/**
+ * Writes forge.json "conventions" and proves the workspace still loads with
+ * it. A failing load restores forge.json byte for byte and rethrows — the
+ * contract either applies whole or not at all.
+ */
+export function applyConventions(root: string, ref: string): void {
+  const file = path.join(root, WORKSPACE_MANIFEST);
+  const before = fs.readFileSync(file, 'utf8');
+  applyConventionsUnchecked(root, ref);
+  try {
+    loadWorkspace(root);
+  } catch (error) {
+    fs.writeFileSync(file, before);
+    throw error;
+  }
 }
 
 export function forgeDependency(packageName: string, link: boolean): string {
@@ -88,6 +144,14 @@ export function scaffoldWorkspace(options: ScaffoldWorkspaceOptions): void {
     writeRendered(path.join(options.targetDir, file.target), file.template, vars);
   }
   fs.mkdirSync(path.join(options.targetDir, 'domains'), { recursive: true });
+
+  const conventions = options.conventions ? parseConventionsRef(options.conventions) : undefined;
+  if (conventions?.packageName) {
+    const packageFile = path.join(options.targetDir, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(packageFile, 'utf8')) as { devDependencies?: Record<string, string> };
+    pkg.devDependencies = { ...(pkg.devDependencies ?? {}), [conventions.packageName]: conventions.version ?? 'latest' };
+    writeJson(packageFile, pkg);
+  }
 }
 
 export function scaffoldModule(root: string, name: string, description?: string): string {

@@ -7,7 +7,13 @@ import { engineFor, ENGINES } from '../lib/engines';
 import { detectPackageManager, runInWorkspace } from '../lib/proc';
 import { writeArchitectureDocs } from '../lib/docs';
 import { canPrompt, promptInput, promptSelect } from '../lib/interactive';
-import { applyBlueprint, scaffoldWorkspace } from '../lib/scaffold';
+import {
+  applyBlueprint,
+  applyConventions,
+  applyConventionsUnchecked,
+  parseConventionsRef,
+  scaffoldWorkspace,
+} from '../lib/scaffold';
 
 export default class New extends BaseCommand {
   static description =
@@ -17,6 +23,7 @@ export default class New extends BaseCommand {
     'forge new my-app',
     'forge new my-app --blueprint serverless-api',
     'forge new my-app --blueprint queue-processing --skip-install',
+    'forge new acme-shop --conventions @acme/cloud-standards/forge@1.2.0',
   ];
 
   static args = {
@@ -39,6 +46,10 @@ export default class New extends BaseCommand {
     }),
     subscription: Flags.string({
       description: 'Azure subscription id (azure-terraform engine; empty = current az account)',
+    }),
+    conventions: Flags.string({
+      description:
+        'inherit the org naming/tags/deploy contract: an npm package (name[/subpath][@version], pinned in devDependencies) or a ./path',
     }),
     'skip-install': Flags.boolean({ description: 'do not install dependencies after scaffolding' }),
     'no-interactive': Flags.boolean({ description: 'never prompt; use flags only' }),
@@ -82,7 +93,14 @@ export default class New extends BaseCommand {
       ]);
     }
 
-    scaffoldWorkspace({ name: wsName, targetDir, link: flags.link, engine: flags.engine });
+    const conventions = flags.conventions ? parseConventionsRef(flags.conventions) : undefined;
+    scaffoldWorkspace({
+      name: wsName,
+      targetDir,
+      link: flags.link,
+      engine: flags.engine,
+      conventions: flags.conventions,
+    });
     this.log(`✔ Created workspace ${wsName} (engine: ${flags.engine})`);
 
     if (credential) {
@@ -98,18 +116,48 @@ export default class New extends BaseCommand {
       this.log(`✔ Applied blueprint "${blueprint.name}"`);
     }
 
-    writeArchitectureDocs(targetDir);
-    this.log('✔ Generated docs/architecture.md');
-
+    // An npm conventions package only resolves after install, so the key is
+    // written (and the docs rendered with its names) once that has run.
+    let installed = false;
     if (flags['skip-install']) {
       this.log('↷ Skipped dependency install');
     } else {
       const packageManager = detectPackageManager();
       this.log(`Installing dependencies with ${packageManager} (this can take a couple of minutes)…`);
       const status = runInWorkspace(targetDir, packageManager, ['install']);
-      if (status !== 0) {
+      installed = status === 0;
+      if (!installed) {
         this.warn(`${packageManager} install failed — run it manually inside the workspace.`);
       }
+    }
+
+    let contractLoaded = true;
+    if (conventions) {
+      if (conventions.packageName && !installed) {
+        // Keep the key the user asked for; loading has to wait for install.
+        applyConventionsUnchecked(targetDir, conventions.ref);
+        contractLoaded = false;
+        this.warn(
+          `Conventions "${conventions.ref}" recorded in forge.json but not loaded yet: run the install, then "forge docs".`,
+        );
+      } else {
+        try {
+          applyConventions(targetDir, conventions.ref);
+        } catch (error) {
+          const cause = error as ForgeError;
+          throw new ForgeError(
+            `${cause.message}
+Workspace ${wsName} was created WITHOUT the conventions key.`,
+            `${cause.hint ? `${cause.hint} ` : ''}Once fixed, add "conventions": "${conventions.ref}" to forge.json and run forge docs.`,
+          );
+        }
+        this.log(`✔ Inheriting conventions from ${conventions.ref}`);
+      }
+    }
+
+    if (contractLoaded) {
+      writeArchitectureDocs(targetDir);
+      this.log('✔ Generated docs/architecture.md');
     }
 
     this.log('');

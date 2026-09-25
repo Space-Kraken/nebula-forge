@@ -10,6 +10,30 @@ export const nameSchema = z
 // Every manifest schema is strict: an unknown key is a user mistake (a typo,
 // or a field the component type does not support) and silently stripping it
 // would make forge "accept" configuration that never takes effect.
+/**
+ * Deployment identity (aws-cdk only): points synth/deploy at a CUSTOM
+ * cdk bootstrap — the landing-zone contract. forge never touches
+ * credentials; CDK assumes the bootstrap's roles as always. Declared inline
+ * per environment, or inherited per environment from "conventions".
+ */
+export const deploySchema = z
+  .object({
+    /** Bootstrap qualifier (also configured on the synthesizer so deploy assumes THAT bootstrap's roles). */
+    qualifier: z
+      .string()
+      .regex(/^[a-z0-9-]{1,10}$/, 'up to 10 chars: lowercase letters, digits, hyphens')
+      .optional(),
+    /**
+     * NAME of the managed policy used as permissions boundary — for the
+     * bootstrap roles (cdk bootstrap) AND for every IAM role the stacks
+     * create (rendered as arn:{partition}:iam::{account}:policy/{name}).
+     */
+    permissionsBoundary: z.string().min(1).optional(),
+    /** Managed policy ARNs granted to the CloudFormation execution role. */
+    executionPolicies: z.array(z.string().min(1)).nonempty().optional(),
+  })
+  .strict();
+
 export const environmentSchema = z
   .object({
     account: z.string().optional(),
@@ -18,25 +42,7 @@ export const environmentSchema = z
     profile: z.string().optional(),
     /** Marks the environment as production (stateful resources are retained on delete). Defaults to name === "prod". */
     production: z.boolean().optional(),
-    /**
-     * Deployment identity (aws-cdk only): points synth/deploy at a CUSTOM
-     * cdk bootstrap — the landing-zone contract. forge never touches
-     * credentials; CDK assumes the bootstrap's roles as always.
-     */
-    deploy: z
-      .object({
-        /** Bootstrap qualifier (also configured on the synthesizer so deploy assumes THAT bootstrap's roles). */
-        qualifier: z
-          .string()
-          .regex(/^[a-z0-9-]{1,10}$/, 'up to 10 chars: lowercase letters, digits, hyphens')
-          .optional(),
-        /** NAME of the managed policy used as permissions boundary for the bootstrap roles. */
-        permissionsBoundary: z.string().min(1).optional(),
-        /** Managed policy ARNs granted to the CloudFormation execution role. */
-        executionPolicies: z.array(z.string().min(1)).nonempty().optional(),
-      })
-      .strict()
-      .optional(),
+    deploy: deploySchema.optional(),
     /**
      * Remote state backend, written by `forge bootstrap` (azure-terraform
      * engine; aws-cdk keeps state in CloudFormation and ignores it).
@@ -90,11 +96,21 @@ export const tagsSchema: z.ZodType<TagsConfig> = z
   .object({ builtin: builtinTagOverrideSchema.optional() })
   .catchall(z.string().min(1)) as unknown as z.ZodType<TagsConfig>;
 
-/** What a conventions package (forge.json "conventions") exports. */
+/** Per-environment slice of the inherited contract: deployment identity only. */
+export const conventionEnvironmentsSchema = z.record(z.object({ deploy: deploySchema.optional() }).strict());
+
+/**
+ * What a conventions module (forge.json "conventions") exports — or returns,
+ * when it exports a function of the workspace context (an ADAPTER from the
+ * org's own vocabulary to forge's). schemaVersion pins the contract this
+ * adapter was written against: renames bump it, additions do not.
+ */
 export const conventionsSchema = z
   .object({
+    schemaVersion: z.literal(1).optional(),
     naming: namingSchema.optional(),
     tags: tagsSchema.optional(),
+    environments: conventionEnvironmentsSchema.optional(),
   })
   .strict();
 
@@ -127,6 +143,8 @@ export const workspaceManifestSchema = z
       .object({
         naming: namingSchema.optional(),
         tags: tagsSchema.optional(),
+        /** Per-environment deploy identity replacing the inherited one (whole block). */
+        environments: conventionEnvironmentsSchema.optional(),
       })
       .strict()
       .optional(),
