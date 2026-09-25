@@ -1,6 +1,6 @@
 {
   "name": "@space-kraken/nebula-forge-engine-azure-tf",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Azure synthesis engine for the forge architecture model — generates plain Terraform JSON",
   "license": "Apache-2.0",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@space-kraken/nebula-forge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "forge — an Angular-style CLI for building well-architected, domain-separated AWS solutions",
   "license": "Apache-2.0",
   "repository": {

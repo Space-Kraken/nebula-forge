@@ -1,7 +1,7 @@
 {
   "name": "nebula-forge",
   "license": "Apache-2.0",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Nebula Forge — an Angular-style CLI for building well-architected, domain-separated cloud solutions",
   "packageManager": "pnpm@11.23.0",
