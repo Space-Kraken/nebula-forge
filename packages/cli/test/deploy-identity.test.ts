@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { loadWorkspace, workspaceManifestSchema } from '@space-kraken/nebula-forge-core';
 import type { WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { bootstrapArgs } from '../src/lib/engines/aws-cdk';
+import { bootstrapArgs, toolkitStackNameFor } from '../src/lib/engines/aws-cdk';
 
 const createdDirs: string[] = [];
 afterEach(() => {
@@ -50,6 +50,8 @@ describe('deploy identity (environments.<env>.deploy)', () => {
       'aws://111122223333/us-east-1',
       '--qualifier',
       'corp1',
+      '--toolkit-stack-name',
+      'CDKToolkit-corp1',
       '--custom-permissions-boundary',
       'org-boundary',
       '--cloudformation-execution-policies',
@@ -57,6 +59,18 @@ describe('deploy identity (environments.<env>.deploy)', () => {
       '--cloudformation-execution-policies',
       'arn:aws:iam::111122223333:policy/DeployB',
     ]);
+  });
+
+  it('names the bootstrap stack after the qualifier so environments sharing an account do not collide', () => {
+    expect(toolkitStackNameFor('ixqa')).toBe('CDKToolkit-ixqa');
+    const dev = bootstrapArgs(model({ deploy: { qualifier: 'ixdev' } }), 'dev');
+    const qa = bootstrapArgs(model({ deploy: { qualifier: 'ixqa' } }), 'dev');
+    expect(dev).toContain('CDKToolkit-ixdev');
+    expect(qa).toContain('CDKToolkit-ixqa');
+    // boundary/policies alone never rename the stack: that is cdk's default bootstrap
+    expect(bootstrapArgs(model({ deploy: { permissionsBoundary: 'org-boundary' } }), 'dev')).not.toContain(
+      '--toolkit-stack-name',
+    );
   });
 
   it('rejects invalid qualifiers in the schema', () => {

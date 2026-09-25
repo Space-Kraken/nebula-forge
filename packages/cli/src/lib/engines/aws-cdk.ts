@@ -40,10 +40,20 @@ function stackNames(model: WorkspaceModel, environment: string, domains: string[
   return domains.map((domain) => stackNameFor(model.name, domain, environment));
 }
 
+/** Bootstrap stack name for a custom qualifier (the default qualifier keeps cdk's "CDKToolkit"). */
+export function toolkitStackNameFor(qualifier: string): string {
+  return `CDKToolkit-${qualifier}`;
+}
+
 /**
  * `cdk bootstrap` argv, honoring the environment's deploy identity block:
  * qualifier, permissions boundary (managed policy NAME) and CloudFormation
- * execution policies. Without the block, byte-identical to the plain call.
+ * execution policies. A custom qualifier also names its bootstrap stack
+ * (CDKToolkit-<qualifier>): several environments sharing one account each
+ * get their own stack instead of the second bootstrap overwriting the
+ * first's "CDKToolkit". Deploy never needs the name — the synthesizer
+ * locates the bootstrap through the /cdk-bootstrap/<qualifier>/version SSM
+ * parameter. Without the block, byte-identical to the plain call.
  * Exported for tests.
  */
 export function bootstrapArgs(model: WorkspaceModel, environment: string): string[] {
@@ -51,7 +61,9 @@ export function bootstrapArgs(model: WorkspaceModel, environment: string): strin
   const args = ['cdk', 'bootstrap'];
   if (envSpec.account) args.push(`aws://${envSpec.account}/${envSpec.region}`);
   const deploy = envSpec.deploy;
-  if (deploy?.qualifier) args.push('--qualifier', deploy.qualifier);
+  if (deploy?.qualifier) {
+    args.push('--qualifier', deploy.qualifier, '--toolkit-stack-name', toolkitStackNameFor(deploy.qualifier));
+  }
   if (deploy?.permissionsBoundary) args.push('--custom-permissions-boundary', deploy.permissionsBoundary);
   for (const policy of deploy?.executionPolicies ?? []) {
     args.push('--cloudformation-execution-policies', policy);

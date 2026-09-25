@@ -621,6 +621,26 @@ describe('org naming and tags', () => {
     expect(plainTemplate.Parameters?.BootstrapVersion?.Default).toBe('/cdk-bootstrap/hnb659fds/version');
   });
 
+  it('deploy.permissionsBoundary attaches the boundary to every IAM role in the stack', () => {
+    const model = makeModel();
+    model.environments.dev.deploy = { qualifier: 'corp1', permissionsBoundary: 'org-boundary' };
+    const { stacks } = createApp(model, { environment: 'dev', outdir: outdir() });
+    const template = Template.fromStack(stacks.get('processing')!);
+    const roles = template.findResources('AWS::IAM::Role');
+    expect(Object.keys(roles).length).toBeGreaterThan(0);
+    for (const [id, role] of Object.entries(roles)) {
+      const boundary = JSON.stringify((role as { Properties: Record<string, unknown> }).Properties.PermissionsBoundary);
+      expect(boundary, `role ${id} has no boundary`).toContain(':policy/org-boundary');
+      expect(boundary).toContain('AWS::AccountId');
+    }
+
+    // without the block: no boundary at all, unchanged
+    const plain = Template.fromStack(createApp(makeModel(), { environment: 'dev', outdir: outdir() }).stacks.get('processing')!);
+    for (const role of Object.values(plain.findResources('AWS::IAM::Role'))) {
+      expect((role as { Properties: Record<string, unknown> }).Properties.PermissionsBoundary).toBeUndefined();
+    }
+  });
+
   it('applies workspace tags to every resource, with {project}/{env} rendered', () => {
     const model = makeModel();
     model.tags = { 'cost-center': 'cc-1234', app: '{project}', stage: '{env}' };

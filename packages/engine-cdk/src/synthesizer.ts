@@ -1,4 +1,4 @@
-import { App, DefaultStackSynthesizer } from 'aws-cdk-lib';
+import { App, DefaultStackSynthesizer, PermissionsBoundary } from 'aws-cdk-lib';
 import { configureNaming, ForgeError, stackNameFor } from '@space-kraken/nebula-forge-core';
 import type { Engine, SynthOptions, WorkspaceModel } from '@space-kraken/nebula-forge-core';
 import { DomainStack } from './domain-stack';
@@ -38,8 +38,13 @@ export function createApp(model: WorkspaceModel, options: SynthOptions): CreateA
   // Custom deployment identity (environments.<env>.deploy): the qualifier
   // points every stack at THAT cdk bootstrap, so `cdk deploy` assumes its
   // roles (with the org's permissions boundary / execution policies) — pure
-  // plumbing, forge never touches credentials.
+  // plumbing, forge never touches credentials. The same boundary is attached
+  // to every IAM role the stack creates (Lambda, Step Functions, custom
+  // resource providers, extend.ts): landing zones that require it only allow
+  // iam:CreateRole with that boundary, so without it the first deploy fails
+  // on the first role. Rendered by name in the stack's own account/partition.
   const qualifier = envSpec.deploy?.qualifier;
+  const boundary = envSpec.deploy?.permissionsBoundary;
   const app = new App({ outdir: options.outdir });
   const stacks = new Map<string, DomainStack>();
   for (const domain of selected) {
@@ -52,6 +57,7 @@ export function createApp(model: WorkspaceModel, options: SynthOptions): CreateA
         environment: options.environment,
         description: domain.description,
         synthesizer: qualifier ? new DefaultStackSynthesizer({ qualifier }) : undefined,
+        permissionsBoundary: boundary ? PermissionsBoundary.fromName(boundary) : undefined,
         env: envSpec.account
           ? { account: envSpec.account, region: envSpec.region }
           : { region: envSpec.region },
